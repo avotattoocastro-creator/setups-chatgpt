@@ -118,26 +118,26 @@ public sealed class AgentApiClient : IDisposable
 
     // ── Save ──────────────────────────────────────────────────────────────────
 
-    /// <summary>POST /api/setups/save — persists a generated setup on the simulator PC.</summary>
+    /// <summary>POST /api/setup/save — persists a generated setup on the simulator PC.</summary>
     public async Task<SaveResult> SaveSetupAsync(
         string car, string track, string fileName, string setupText, bool overwrite = true)
     {
         if (string.IsNullOrWhiteSpace(setupText))
             throw new AgentException("REMOTE SAVE aborted: content is empty.");
 
-        var url = $"{_baseUrl}/api/setups/save";
+        var url = $"{_baseUrl}/api/setup/save";
         AppLogger.Instance.Info(
             $"REMOTE SAVE -> file={fileName}  size={System.Text.Encoding.UTF8.GetByteCount(setupText)} bytes");
 
         SaveResult result;
         try
         {
-            result = await PostAsync<SaveResult>("/api/setups/save", new SaveSetupRequest
+            result = await PostAsync<SaveResult>("/api/setup/save", new SaveSetupRequest
             {
-                Car       = car,
-                Track     = track,
+                CarId     = car,
+                TrackId   = track,
                 FileName  = fileName,
-                Content   = setupText,
+                SetupText = setupText,
                 Overwrite = overwrite,
             });
         }
@@ -161,6 +161,28 @@ public sealed class AgentApiClient : IDisposable
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// GET /api/setups/versions — returns the list of existing versioned files for a given
+    /// car/track/base combination, allowing callers to compute the next version number.
+    /// Returns an empty <see cref="VersionsResponse"/> when the endpoint is not reachable.
+    /// </summary>
+    public async Task<VersionsResponse> GetVersionsAsync(string car, string track, string baseFile)
+    {
+        try
+        {
+            return await GetAsync<VersionsResponse>(
+                $"/api/setups/versions" +
+                $"?car={Uri.EscapeDataString(car)}" +
+                $"&track={Uri.EscapeDataString(track)}" +
+                $"&base={Uri.EscapeDataString(baseFile)}");
+        }
+        catch
+        {
+            // If the endpoint is unavailable, return an empty list so versioning starts at v001.
+            return new VersionsResponse();
+        }
     }
 
     // ── Core HTTP helpers ─────────────────────────────────────────────────────

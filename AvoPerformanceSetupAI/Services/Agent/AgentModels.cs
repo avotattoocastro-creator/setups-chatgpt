@@ -22,23 +22,50 @@ public sealed class SetupItem
     public string Track     { get; set; } = string.Empty;
 }
 
-/// <summary>Body for POST /api/setups/save</summary>
+/// <summary>Body for POST /api/setup/save</summary>
 public sealed class SaveSetupRequest
 {
-    public string Car      { get; set; } = string.Empty;
-    public string Track    { get; set; } = string.Empty;
-    public string FileName { get; set; } = string.Empty;
-    /// <summary>Raw INI text of the setup. Must match the Agent field name "content".</summary>
-    public string Content  { get; set; } = string.Empty;
+    public string CarId     { get; set; } = string.Empty;
+    public string TrackId   { get; set; } = string.Empty;
+    public string FileName  { get; set; } = string.Empty;
+    /// <summary>Raw INI text of the setup.</summary>
+    public string SetupText { get; set; } = string.Empty;
     public bool   Overwrite { get; set; } = true;
 }
 
-/// <summary>Response from POST /api/setups/save</summary>
+/// <summary>Response from POST /api/setup/save</summary>
 public sealed class SaveResult
 {
     public bool   Success { get; set; }
     public string Path    { get; set; } = string.Empty;
     public string Error   { get; set; } = string.Empty;
+}
+
+/// <summary>Body for POST /api/setup/apply</summary>
+public sealed class ApplySetupRequestDto
+{
+    public string Car        { get; set; } = string.Empty;
+    public string Track      { get; set; } = string.Empty;
+    public string File       { get; set; } = string.Empty;
+    public string IniContent { get; set; } = string.Empty;
+    public bool   Versioned  { get; set; } = true;
+    public string Tag        { get; set; } = string.Empty;
+}
+
+/// <summary>Response from POST /api/setup/apply</summary>
+public sealed class ApplySetupResult
+{
+    public bool   SavedOk   { get; set; }
+    public string SavedFile { get; set; } = string.Empty;
+    public string SavedPath { get; set; } = string.Empty;
+    public bool   AppliedOk { get; set; }
+    public string Reason    { get; set; } = string.Empty;
+}
+
+/// <summary>Response from GET /api/setups/versions</summary>
+public sealed class VersionsResponse
+{
+    public List<string> Files { get; set; } = new();
 }
 
 /// <summary>

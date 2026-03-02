@@ -4,7 +4,7 @@ namespace AvoPerformanceSetupAI.Services.Setup;
 
 /// <summary>
 /// Saves setup proposals on the simulator PC via the remote Agent REST API
-/// (<c>POST /api/setups/save</c>).
+/// (<c>POST /api/setup/save</c>).
 /// </summary>
 /// <remarks>
 /// All errors are returned as <see cref="ProposalSaveResult.Failed"/> — the caller
