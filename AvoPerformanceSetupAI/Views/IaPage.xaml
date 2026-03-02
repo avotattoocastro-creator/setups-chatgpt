@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="AvoPerformanceSetupAI.Views.IaPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:AvoPerformanceSetupAI.ViewModels"
+    xmlns:converters="using:AvoPerformanceSetupAI.Converters"
+    Background="{StaticResource CarbonBackgroundBrush}"
+    RequestedTheme="Dark">
+
+    <Page.Resources>
+        <converters:BoolToYesNoConverter     x:Key="BoolToYesNoConverter"/>
+        <converters:NullToCollapsedConverter x:Key="NullToCollapsedConverter"/>
+    </Page.Resources>
+
+    <ScrollViewer Padding="16" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12">
+
+            <!-- ══ AI Status ═══════════════════════════════════════════════════ -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16,12">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="🤖 AI Status"
+                               Foreground="#FF00D4B4" FontSize="14" FontWeight="SemiBold"/>
+
+                    <!-- AI Enabled toggle -->
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.IsAiEnabled, Mode=TwoWay}"
+                                  OnContent="AI Enabled"
+                                  OffContent="AI Disabled"
+                                  Foreground="#FFCCE8E8"/>
+
+                    <!-- Engine type selector -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="Engine:" Foreground="#FF8AABAB" FontSize="12" VerticalAlignment="Center"/>
+                        <ComboBox ItemsSource="{x:Bind ViewModel.EngineTypes}"
+                                  SelectedItem="{x:Bind ViewModel.AiEngineType, Mode=TwoWay}"
+                                  Foreground="#FFCCE8E8" FontSize="12"
+                                  MinWidth="120"/>
+                    </StackPanel>
+
+                    <!-- Mode -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="Mode:" Foreground="#FF8AABAB" FontSize="12" VerticalAlignment="Center"/>
+                        <ComboBox ItemsSource="{x:Bind ViewModel.Modes}"
+                                  SelectedItem="{x:Bind ViewModel.Mode, Mode=TwoWay}"
+                                  Foreground="#FFCCE8E8" FontSize="12"
+                                  MinWidth="120"/>
+                    </StackPanel>
+
+                    <!-- Setup file keys available -->
+                    <TextBlock Text="{x:Bind ViewModel.UniverseInfo, Mode=OneWay}"
+                               Foreground="#FF507070" FontSize="11" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ══ Agent / Simulator State ═══════════════════════════════════ -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16,12">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="📡 Simulator &amp; Agent"
+                               Foreground="#FF00D4B4" FontSize="14" FontWeight="SemiBold"/>
+
+                    <Grid ColumnSpacing="8" RowSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Agent reachable:" Foreground="#FF8AABAB" FontSize="12"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1"
+                                   Text="{x:Bind ViewModel.IsAgentReachable, Mode=OneWay, Converter={StaticResource BoolToYesNoConverter}}"
+                                   Foreground="#FF00E676" FontSize="12" FontFamily="Consolas"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="AC Running:" Foreground="#FF8AABAB" FontSize="12"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1"
+                                   Text="{x:Bind ViewModel.IsAcRunning, Mode=OneWay, Converter={StaticResource BoolToYesNoConverter}}"
+                                   Foreground="#FF00E676" FontSize="12" FontFamily="Consolas"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Shared Memory:" Foreground="#FF8AABAB" FontSize="12"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1"
+                                   Text="{x:Bind ViewModel.IsSharedMemoryConnected, Mode=OneWay, Converter={StaticResource BoolToYesNoConverter}}"
+                                   Foreground="#FF00E676" FontSize="12" FontFamily="Consolas"/>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Active Car:" Foreground="#FF8AABAB" FontSize="12"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1"
+                                   Text="{x:Bind ViewModel.ActiveCarId, Mode=OneWay}"
+                                   Foreground="#FFCCE8E8" FontSize="12" FontFamily="Consolas"/>
+                    </Grid>
+
+                    <!-- Live Apply blocked reason — only visible when non-null/empty -->
+                    <TextBlock Text="{x:Bind ViewModel.LiveApplyBlockedReason, Mode=OneWay}"
+                               Foreground="#FFFF6E6E" FontSize="11"
+                               Visibility="{x:Bind ViewModel.LiveApplyBlockedReason, Mode=OneWay, Converter={StaticResource NullToCollapsedConverter}}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ══ Controls ══════════════════════════════════════════════════ -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16,12">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="▶ Controls"
+                               Foreground="#FF00D4B4" FontSize="14" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="{x:Bind ViewModel.RunButtonLabel, Mode=OneWay}"
+                                Style="{StaticResource AccentActionButton}"
+                                Command="{x:Bind ViewModel.RunAiCommand}"
+                                MinWidth="100"/>
+                        <Button Content="✕ Clear Proposal"
+                                Style="{StaticResource SecondaryActionButton}"
+                                Command="{x:Bind ViewModel.ClearProposalCommand}"
+                                MinWidth="130"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ══ Last Run Info ═════════════════════════════════════════════ -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16,12">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="ℹ Last Run"
+                               Foreground="#FF00D4B4" FontSize="14" FontWeight="SemiBold"/>
+
+                    <Grid ColumnSpacing="8" RowSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Last RUN at:" Foreground="#FF8AABAB" FontSize="12"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1"
+                                   Text="{x:Bind ViewModel.LastAiRunText, Mode=OneWay}"
+                                   Foreground="#FFCCE8E8" FontSize="12" FontFamily="Consolas"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Proposals:" Foreground="#FF8AABAB" FontSize="12"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1"
+                                   Text="{x:Bind ViewModel.LastProposals.Count, Mode=OneWay}"
+                                   Foreground="#FFCCE8E8" FontSize="12" FontFamily="Consolas"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Driver vs Setup:" Foreground="#FF8AABAB" FontSize="12"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1"
+                                   Text="{x:Bind ViewModel.DriverVsSetupText, Mode=OneWay}"
+                                   Foreground="#FFCCE8E8" FontSize="12" FontFamily="Consolas"
+                                   TextWrapping="Wrap"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>
