@@ -120,7 +120,7 @@ public sealed class AgentApiClient : IDisposable
 
     /// <summary>POST /api/setup/save — persists a generated setup on the simulator PC.</summary>
     public async Task<SaveResult> SaveSetupAsync(
-        string car, string track, string fileName, string setupText, bool overwrite = true)
+        string car, string track, string fileName, string setupText, bool overwrite = true, bool versioned = false)
     {
         if (string.IsNullOrWhiteSpace(setupText))
             throw new AgentException("REMOTE SAVE aborted: content is empty.");
@@ -133,6 +133,7 @@ public sealed class AgentApiClient : IDisposable
             FileName  = fileName,
             SetupText = setupText,
             Overwrite = overwrite,
+            Versioned = versioned,
         };
         AppLogger.Instance.Info(
             $"SAVE JSON -> car={dto.CarId}, track={dto.TrackId}, file={dto.FileName}, length={dto.SetupText?.Length}");
@@ -161,7 +162,8 @@ public sealed class AgentApiClient : IDisposable
             throw new AgentException(errMsg);
         }
 
-        AppLogger.Instance.Info("REMOTE SAVE OK");
+        var savedName = string.IsNullOrEmpty(result.SavedFileName) ? fileName : result.SavedFileName;
+        AppLogger.Instance.Info($"Setup guardado correctamente: {savedName}");
         return result;
     }
 

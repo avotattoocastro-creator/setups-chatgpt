@@ -33,15 +33,17 @@ public sealed class SaveSetupRequest
     /// <summary>Raw INI text of the setup.</summary>
     public string SetupText { get; set; } = string.Empty;
     public bool   Overwrite { get; set; } = true;
-    public bool   Versioned { get; set; } = true;
+    public bool   Versioned { get; set; } = false;
 }
 
 /// <summary>Response from POST /api/setup/save</summary>
 public sealed class SaveResult
 {
-    public bool   Success { get; set; }
-    public string Path    { get; set; } = string.Empty;
-    public string Error   { get; set; } = string.Empty;
+    public bool   Success        { get; set; }
+    public string Path           { get; set; } = string.Empty;
+    public string Error          { get; set; } = string.Empty;
+    /// <summary>The final file name chosen by the Agent (may differ from the requested FileName).</summary>
+    public string SavedFileName  { get; set; } = string.Empty;
 }
 
 /// <summary>Body for POST /api/setup/apply</summary>
