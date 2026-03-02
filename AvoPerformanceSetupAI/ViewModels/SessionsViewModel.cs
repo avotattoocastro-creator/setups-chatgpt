@@ -1538,54 +1538,7 @@ private bool CanStop() => IsRunning;
 
         if (!saveResult.Ok)
         {
-<<<<<<< HEAD
-            string savedPath;
-
-            if (IsRemoteMode)
-            {
-                // ── Remote: INI-only save via Agent ──────────────────────────────
-                var saver = CreateSaver(); // RemoteSetupSaver
-                savedPath = await saver.SaveAsync(CarId, TrackId, versionedName, modifiedText);
-            }
-            else
-            {
-                // ── Local: write the versioned file ──────────────────────────────
-                var destFolder = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId);
-                Directory.CreateDirectory(destFolder);
-                var filePath = Path.Combine(destFolder, versionedName);
-                await File.WriteAllTextAsync(filePath, modifiedText);
-                savedPath = filePath;
-                AppLogger.Instance.Ai("Propuesta de IA aplicada al archivo de setup.");
-            }
-
-            // ── Show "Saved OK" with file name and location ──────────────────────
-            var locationInfo = IsRemoteMode
-                ? $"  [{CarId}/{TrackId}/{versionedName}]"
-                : $"  {savedPath}";
-            StatusText = $"✔ Saved OK: {versionedName}";
-
-            AppliedFileLabel = $"{SelectedSetupFile} → {versionedName}";
-            AppLogger.Instance.Info($"Setup guardado como: {versionedName}{locationInfo}");
-            AddLog($"Saved OK → {versionedName}", "AI");
-
-            // Capture base-vs-proposed diff to SetupDiffViewModel for the Setup Diff tab.
-            SetupDiffViewModel.Shared.Load(
-                baseText:      baseIniText,
-                proposedText:  modifiedText,
-                baseLabel:     Path.GetFileNameWithoutExtension(SelectedSetupFile ?? "base"),
-                proposedLabel: Path.GetFileNameWithoutExtension(versionedName));
-
-            // Clear proposals after a successful apply — user must press RUN again to get new ones.
-            LastProposals.Clear();
-            _hasProposalFromRun = false;
-        }
-        catch (Exception ex)
-        {
-            var inner   = ex.InnerException is not null ? $" ({ex.InnerException.Message})" : string.Empty;
-            var failMsg = $"APPLY ERROR [{ex.GetType().Name}] {ex.Message}{inner}";
-=======
             var failMsg = $"APPLY PROPOSAL FAILED [{modeLabel}]: {saveResult.Reason}";
->>>>>>> 746e8f8b09996384772edc1e515cb9d8d775d027
             System.Diagnostics.Debug.WriteLine($"[SessionsVM] {failMsg}");
             AddLog(failMsg, "ERR");
             StatusText = "● PROPOSAL ERROR";
@@ -1600,7 +1553,7 @@ private bool CanStop() => IsRunning;
         StatusText = $"✔ Saved OK: {versionedName}";
 
         AppliedFileLabel = $"{SelectedSetupFile} → {versionedName}";
-        AppLogger.Instance.Info($"Setup guardado como: {versionedName}{locationInfo}");
+        AppLogger.Instance.Info($"Setup guardado como: {versionedName}");
         AddLog($"Saved OK [{modeLabel}] → {versionedName}", "AI");
 
         // Capture base label before SelectedSetupFile changes.
