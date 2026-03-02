@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="AvoPerformanceSetupAI.Views.ControlPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource CarbonBackgroundBrush}"
+    RequestedTheme="Dark">
+
+    <ScrollViewer Padding="24">
+        <StackPanel Spacing="16" MaxWidth="700">
+            <TextBlock Text="Control" FontSize="24" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+            <TextBlock Text="Panel de control en tiempo real de la sesión activa."
+                       Foreground="#FF8AABAB"/>
+
+            <!-- Session Info Card -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Sesión Activa" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <Grid ColumnSpacing="24" RowSpacing="14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Labels -->
+                        <TextBlock Grid.Column="0" Grid.Row="0" Text="Coche"
+                                   Foreground="#FF8AABAB" FontSize="11"/>
+                        <TextBlock Grid.Column="1" Grid.Row="0" Text="Circuito"
+                                   Foreground="#FF8AABAB" FontSize="11"/>
+                        <TextBlock Grid.Column="2" Grid.Row="0" Text="Modo"
+                                   Foreground="#FF8AABAB" FontSize="11"/>
+
+                        <!-- Values -->
+                        <TextBlock Grid.Column="0" Grid.Row="1"
+                                   Text="{Binding CarId}"
+                                   Foreground="#FFE0F0F0" FontWeight="SemiBold"
+                                   FontFamily="Consolas" FontSize="14"/>
+                        <TextBlock Grid.Column="1" Grid.Row="1"
+                                   Text="{Binding TrackId}"
+                                   Foreground="#FFE0F0F0" FontWeight="SemiBold"
+                                   FontFamily="Consolas" FontSize="14"/>
+                        <TextBlock Grid.Column="2" Grid.Row="1"
+                                   Text="{Binding Mode}"
+                                   Foreground="#FFE0F0F0" FontWeight="SemiBold"
+                                   FontFamily="Consolas" FontSize="14"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Telemetry Status Card -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Estado de Telemetría" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Status -->
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Estado" Foreground="#FF8AABAB" FontSize="11"/>
+                            <TextBlock Text="{Binding StatusText}"
+                                       Foreground="#FF00D4B4" FontSize="15" FontWeight="Bold"/>
+                        </StackPanel>
+
+                        <!-- Brain -->
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="Motor IA" Foreground="#FF8AABAB" FontSize="11"/>
+                            <TextBlock Text="{Binding BrainInfo}"
+                                       Foreground="#FF8AABAB" FontSize="12"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Risk indicator -->
+                    <Border Background="#FF0F2A1A" CornerRadius="4" Padding="10,6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Nivel de riesgo:" Foreground="#FF8AABAB" FontSize="12"/>
+                            <TextBlock Text="{Binding RiskLevel}"
+                                       Foreground="#FF00E676" FontSize="12" FontWeight="Bold"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- Actions Card -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Acciones" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Content="⚡ Connect"
+                                Style="{StaticResource SecondaryActionButton}"
+                                Command="{Binding ConnectCommand}"/>
+                        <Button Content="▶ Start"
+                                Style="{StaticResource AccentActionButton}"
+                                Command="{Binding StartCommand}"/>
+                        <Button Content="⏹ Stop"
+                                Style="{StaticResource SecondaryActionButton}"
+                                Command="{Binding StopCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Setup Files Card -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Archivo de Setup Activo" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <TextBlock Text="{Binding SelectedSetupFile}"
+                               Foreground="#FF00D4B4" FontFamily="Consolas" FontSize="13"
+                               TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Content="{Binding ApplyButtonLabel}"
+                                ToolTipService.ToolTip="{Binding ApplyButtonTooltip}"
+                                Style="{StaticResource AccentActionButton}"
+                                Command="{Binding ApplyProposalCommand}"/>
+                        <Button Content="↩ Rollback"
+                                Style="{StaticResource SecondaryActionButton}"
+                                Command="{Binding RollbackCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
