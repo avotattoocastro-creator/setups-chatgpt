@@ -14,10 +14,8 @@ public sealed class RemoteSetupSaver : ISetupSaver
 
     public async Task<string> SaveAsync(string car, string track, string fileName, string setupText)
     {
+        // SaveSetupAsync already throws AgentException on HTTP errors and on success=false.
         var result = await _client.SaveSetupAsync(car, track, fileName, setupText, overwrite: true);
-        if (!result.Success)
-            throw new AgentException(
-                string.IsNullOrEmpty(result.Error) ? "Error al guardar setup en el Agent." : result.Error);
         return result.Path;
     }
 }

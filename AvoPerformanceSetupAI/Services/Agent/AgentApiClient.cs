@@ -119,23 +119,48 @@ public sealed class AgentApiClient : IDisposable
     // ── Save ──────────────────────────────────────────────────────────────────
 
     /// <summary>POST /api/setups/save — persists a generated setup on the simulator PC.</summary>
-    public Task<SaveResult> SaveSetupAsync(
+    public async Task<SaveResult> SaveSetupAsync(
         string car, string track, string fileName, string setupText, bool overwrite = true)
     {
         if (string.IsNullOrWhiteSpace(setupText))
             throw new AgentException("REMOTE SAVE aborted: content is empty.");
 
+        var url = $"{_baseUrl}/api/setups/save";
         AppLogger.Instance.Info(
             $"REMOTE SAVE -> file={fileName}  size={System.Text.Encoding.UTF8.GetByteCount(setupText)} bytes");
 
-        return PostAsync<SaveResult>("/api/setups/save", new SaveSetupRequest
+        SaveResult result;
+        try
         {
-            Car      = car,
-            Track    = track,
-            FileName = fileName,
-            Content  = setupText,
-            Overwrite = overwrite,
-        });
+            result = await PostAsync<SaveResult>("/api/setups/save", new SaveSetupRequest
+            {
+                Car       = car,
+                Track     = track,
+                FileName  = fileName,
+                Content   = setupText,
+                Overwrite = overwrite,
+            });
+        }
+        catch (AgentException ex)
+        {
+            var statusPart = ex.HttpStatus.HasValue
+                ? $" HTTP {(int)ex.HttpStatus.Value}"
+                : string.Empty;
+            AppLogger.Instance.Error(
+                $"REMOTE SAVE FAILED{statusPart}  url={url}  {ex.Message}");
+            throw;
+        }
+
+        if (!result.Success)
+        {
+            var errMsg = string.IsNullOrEmpty(result.Error)
+                ? "El Agent rechazó el guardado (success=false sin mensaje)."
+                : result.Error;
+            AppLogger.Instance.Error($"REMOTE SAVE FAILED  url={url}  {errMsg}");
+            throw new AgentException(errMsg);
+        }
+
+        return result;
     }
 
     // ── Core HTTP helpers ─────────────────────────────────────────────────────
