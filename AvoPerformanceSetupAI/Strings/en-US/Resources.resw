@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter</value></resheader>
+
+  <data name="AppTitle" xml:space="preserve"><value>AvoPerformanceSetupAI</value></data>
+  <data name="Tab_Configuracion" xml:space="preserve"><value>Configuration</value></data>
+  <data name="Tab_Sesiones" xml:space="preserve"><value>Sessions</value></data>
+  <data name="Tab_Control" xml:space="preserve"><value>Control</value></data>
+  <data name="Label_CarId" xml:space="preserve"><value>Car ID</value></data>
+  <data name="Label_TrackId" xml:space="preserve"><value>Track ID</value></data>
+  <data name="Label_Source" xml:space="preserve"><value>Source</value></data>
+  <data name="Label_Mode" xml:space="preserve"><value>Mode</value></data>
+  <data name="Label_Setups" xml:space="preserve"><value>Setups</value></data>
+  <data name="Label_Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Label_LastProposal" xml:space="preserve"><value>Last Proposal</value></data>
+  <data name="Label_Risk" xml:space="preserve"><value>Risk</value></data>
+  <data name="Button_Start" xml:space="preserve"><value>▶ Start</value></data>
+  <data name="Button_Stop" xml:space="preserve"><value>⏹ Stop</value></data>
+  <data name="Button_Apply" xml:space="preserve"><value>✔ Apply</value></data>
+  <data name="Button_Connect" xml:space="preserve"><value>⚡ Connect</value></data>
+  <data name="Button_Run" xml:space="preserve"><value>⚡ RUN</value></data>
+  <data name="Button_ApplyProposal" xml:space="preserve"><value>✔ Save Proposal (INI)</value></data>
+  <data name="Button_Rollback" xml:space="preserve"><value>↩ Rollback</value></data>
+  <data name="Col_Setup" xml:space="preserve"><value>Setup</value></data>
+  <data name="Col_BestLap" xml:space="preserve"><value>Best Lap</value></data>
+  <data name="Col_Iter" xml:space="preserve"><value>Iter</value></data>
+  <data name="Col_Exported" xml:space="preserve"><value>Exported</value></data>
+</root>
