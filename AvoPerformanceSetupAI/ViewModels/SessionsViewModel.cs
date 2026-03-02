@@ -235,9 +235,9 @@ public partial class SessionsViewModel : ObservableObject
 
     /// <summary>Human-readable summary of available parameters for the UI.</summary>
     public string UniverseInfo =>
-        _currentUniverse is null
+        CurrentUniverse is null
             ? "Selecciona y carga un setup primero."
-            : $"Keys disponibles: {_currentUniverse.NumericCount} numéricos / {_currentUniverse.KeyCount} total";
+            : $"Keys disponibles: {CurrentUniverse.NumericCount} numéricos / {CurrentUniverse.KeyCount} total";
 
     /// <summary>
     /// Current setup allowlist in <c>"[SECTION]KEY"</c> format.
@@ -262,11 +262,11 @@ public partial class SessionsViewModel : ObservableObject
     {
         get
         {
-            if (_currentUniverse is null) return string.Empty;
+            if (CurrentUniverse is null) return string.Empty;
             var cat = _selectedCategory;
             if (string.IsNullOrEmpty(cat) || cat == "All") return string.Empty;
             if (!Enum.TryParse<SetupCategory>(cat, out var selectedCat)) return string.Empty;
-            if (!_currentUniverse.ByCategory.TryGetValue(selectedCat, out var keys))
+            if (!CurrentUniverse.ByCategory.TryGetValue(selectedCat, out var keys))
                 return $"Disponible: 0 numéricos en {cat}";
             var numericCount = keys.Count(k => k.IsNumeric);
             return $"Disponible: {numericCount} numéricos en {cat}";
@@ -1185,7 +1185,7 @@ public partial class SessionsViewModel : ObservableObject
         ApplyProposalCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanStart() => !IsRunning && _currentUniverse is not null;
+    private bool CanStart() => !IsRunning && CurrentUniverse is not null;
 
     [RelayCommand(CanExecute = nameof(CanStop))]
     private void Stop()
@@ -1225,10 +1225,10 @@ public partial class SessionsViewModel : ObservableObject
         }
 
         // Ensure universe/cache is loaded for the currently selected file.
-        if (_cachedEntries is null || _currentUniverse is null)
+        if (_cachedEntries is null || CurrentUniverse is null)
             await LoadProposalsFromFileAsync();
 
-        if (_cachedEntries is null || _currentUniverse is null)
+        if (_cachedEntries is null || CurrentUniverse is null)
         {
             AppLogger.Instance.Warn("No se pudo cargar el setup — RUN cancelado.");
             return;
@@ -1260,7 +1260,7 @@ public partial class SessionsViewModel : ObservableObject
         ApplyProposalCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanRunAi() => !IsApplying && IsAiEnabled && _currentUniverse is not null;
+    private bool CanRunAi() => !IsApplying && IsAiEnabled && CurrentUniverse is not null;
 private bool CanStop() => IsRunning;
 
     /// <summary>Clears the current proposal list (available from the IA tab).</summary>
@@ -1419,7 +1419,7 @@ private bool CanStop() => IsRunning;
         }
 
         // Safety filter: only apply proposals whose (Section, Parameter) exists in the universe.
-        var universe = _currentUniverse;
+        var universe = CurrentUniverse;
         var proposalsToApply = universe is null
             ? LastProposals.ToList()
             : LastProposals.Where(p =>
@@ -1507,18 +1507,11 @@ private bool CanStop() => IsRunning;
             AppLogger.Instance.Info($"Setup guardado como: {versionedName}{locationInfo}");
             AddLog($"Saved OK → {versionedName}", "AI");
 
-            // Capture base label before SelectedSetupFile changes.
-            var baseLabel = Path.GetFileNameWithoutExtension(SelectedSetupFile ?? "base");
-
-            // Refresh file list, select the new versioned file.
-            await LoadSetupFilesAsync(TrackId);
-            SelectedSetupFile = versionedName;
-
-            // Push base-vs-proposed diff to SetupDiffViewModel for the Setup Diff tab.
+            // Capture base-vs-proposed diff to SetupDiffViewModel for the Setup Diff tab.
             SetupDiffViewModel.Shared.Load(
                 baseText:      baseIniText,
                 proposedText:  modifiedText,
-                baseLabel:     baseLabel,
+                baseLabel:     Path.GetFileNameWithoutExtension(SelectedSetupFile ?? "base"),
                 proposedLabel: Path.GetFileNameWithoutExtension(versionedName));
 
             // Clear proposals after a successful apply — user must press RUN again to get new ones.
@@ -1589,7 +1582,7 @@ private bool CanStop() => IsRunning;
         if (SelectedIteration is null) return;
 
         // Filter: skip proposals whose (Section, Parameter) is not in the loaded universe.
-        if (_currentUniverse is not null && !_currentUniverse.Contains(p.Section, p.Parameter))
+        if (CurrentUniverse is not null && !CurrentUniverse.Contains(p.Section, p.Parameter))
         {
             // Silent ignore: proposals MUST be limited to the loaded setup universe.
             return;
@@ -1628,7 +1621,7 @@ private bool CanStop() => IsRunning;
         foreach (var p in proposals)
         {
             // Filter: skip proposals whose (Section, Parameter) is not in the loaded universe.
-            if (_currentUniverse is not null && !_currentUniverse.Contains(p.Section, p.Parameter))
+            if (CurrentUniverse is not null && !CurrentUniverse.Contains(p.Section, p.Parameter))
             {
                 ignored++;
                 continue;
