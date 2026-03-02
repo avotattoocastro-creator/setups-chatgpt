@@ -126,20 +126,21 @@ public sealed class AgentApiClient : IDisposable
             throw new AgentException("REMOTE SAVE aborted: content is empty.");
 
         var url = $"{_baseUrl}/api/setup/save";
+        var dto = new SaveSetupRequest
+        {
+            CarId     = car,
+            TrackId   = track,
+            FileName  = fileName,
+            SetupText = setupText,
+            Overwrite = overwrite,
+        };
         AppLogger.Instance.Info(
-            $"REMOTE SAVE -> file={fileName}  size={System.Text.Encoding.UTF8.GetByteCount(setupText)} bytes");
+            $"SAVE JSON -> car={dto.CarId}, track={dto.TrackId}, file={dto.FileName}, length={dto.SetupText?.Length}");
 
         SaveResult result;
         try
         {
-            result = await PostAsync<SaveResult>("/api/setup/save", new SaveSetupRequest
-            {
-                CarId     = car,
-                TrackId   = track,
-                FileName  = fileName,
-                SetupText = setupText,
-                Overwrite = overwrite,
-            });
+            result = await PostAsync<SaveResult>("/api/setup/save", dto);
         }
         catch (AgentException ex)
         {
@@ -160,6 +161,7 @@ public sealed class AgentApiClient : IDisposable
             throw new AgentException(errMsg);
         }
 
+        AppLogger.Instance.Info("REMOTE SAVE OK");
         return result;
     }
 
