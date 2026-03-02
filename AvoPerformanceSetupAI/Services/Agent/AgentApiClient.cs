@@ -118,10 +118,10 @@ public sealed class AgentApiClient : IDisposable
 
     // ── Save ──────────────────────────────────────────────────────────────────
 
-    /// <summary>POST /api/reference/setups/save — persists a generated setup on the simulator PC.</summary>
+    /// <summary>POST /api/setups/save — persists a generated setup on the simulator PC.</summary>
     public Task<SaveResult> SaveSetupAsync(
         string car, string track, string fileName, string setupText, bool overwrite = true)
-        => PostAsync<SaveResult>("/api/reference/setups/save", new SaveSetupRequest
+        => PostAsync<SaveResult>("/api/setups/save", new SaveSetupRequest
         {
             Car       = car,
             Track     = track,

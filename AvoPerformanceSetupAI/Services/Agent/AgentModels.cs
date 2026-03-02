@@ -22,7 +22,7 @@ public sealed class SetupItem
     public string Track     { get; set; } = string.Empty;
 }
 
-/// <summary>Body for POST /api/setup/save</summary>
+/// <summary>Body for POST /api/setups/save</summary>
 public sealed class SaveSetupRequest
 {
     public string Car       { get; set; } = string.Empty;
@@ -32,7 +32,7 @@ public sealed class SaveSetupRequest
     public bool   Overwrite { get; set; } = true;
 }
 
-/// <summary>Response from POST /api/setup/save</summary>
+/// <summary>Response from POST /api/setups/save</summary>
 public sealed class SaveResult
 {
     public bool   Success { get; set; }
