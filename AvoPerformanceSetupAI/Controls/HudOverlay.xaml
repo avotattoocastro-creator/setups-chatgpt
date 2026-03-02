@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="AvoPerformanceSetupAI.Controls.HudOverlay"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <!-- Fade in: 0 → 1, 250 ms EaseOut -->
+        <Storyboard x:Name="FadeInStoryboard">
+            <DoubleAnimation
+                Storyboard.TargetName="HudRoot"
+                Storyboard.TargetProperty="Opacity"
+                From="0" To="1" Duration="0:0:0.250">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+
+        <!-- Fade out: 1 → 0, 400 ms EaseInOut -->
+        <Storyboard x:Name="FadeOutStoryboard">
+            <DoubleAnimation
+                Storyboard.TargetName="HudRoot"
+                Storyboard.TargetProperty="Opacity"
+                From="1" To="0" Duration="0:0:0.400">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+    </UserControl.Resources>
+
+    <!-- Semi-transparent dark card, teal border -->
+    <Border x:Name="HudRoot"
+            Background="#E8080E0E"
+            BorderBrush="#FF2E5050"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="20,14"
+            MinWidth="480" MaxWidth="600"
+            Opacity="0">
+        <StackPanel Spacing="8">
+
+            <!-- Header row: title + hint -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="&#127950;" FontSize="14" VerticalAlignment="Center"/>
+                    <TextBlock Text="HUD RÁPIDO"
+                               FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                               Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="TAB para actualizar"
+                           FontFamily="Consolas" FontSize="11"
+                           Foreground="#44FFFFFF" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- Divider -->
+            <Border Height="1" Background="#22FFFFFF"/>
+
+            <!-- Line 1: Telemetry state -->
+            <TextBlock x:Name="Line1Block"
+                       FontFamily="Consolas" FontSize="14" FontWeight="SemiBold"
+                       Foreground="#FF00B4B4"
+                       TextTrimming="CharacterEllipsis"/>
+
+            <!-- Line 2: Delta vs Ideal — largest, most critical -->
+            <TextBlock x:Name="Line2Block"
+                       FontFamily="Consolas" FontSize="18" FontWeight="Bold"
+                       Foreground="#FF00FF88"
+                       TextTrimming="CharacterEllipsis"/>
+
+            <!-- Line 3: Speed / Gear / RPM -->
+            <TextBlock x:Name="Line3Block"
+                       FontFamily="Consolas" FontSize="15"
+                       Foreground="#FFFFFFFF"
+                       TextTrimming="CharacterEllipsis"/>
+
+            <!-- Line 4: Top proposal -->
+            <TextBlock x:Name="Line4Block"
+                       FontFamily="Consolas" FontSize="13"
+                       Foreground="#FFFFA040"
+                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+
+            <!-- Line 5: Phase + last corner -->
+            <TextBlock x:Name="Line5Block"
+                       FontFamily="Consolas" FontSize="13"
+                       Foreground="#FF8AABAB"
+                       TextTrimming="CharacterEllipsis"/>
+
+        </StackPanel>
+    </Border>
+</UserControl>
