@@ -121,14 +121,22 @@ public sealed class AgentApiClient : IDisposable
     /// <summary>POST /api/setups/save — persists a generated setup on the simulator PC.</summary>
     public Task<SaveResult> SaveSetupAsync(
         string car, string track, string fileName, string setupText, bool overwrite = true)
-        => PostAsync<SaveResult>("/api/setups/save", new SaveSetupRequest
+    {
+        if (string.IsNullOrWhiteSpace(setupText))
+            throw new AgentException("REMOTE SAVE aborted: content is empty.");
+
+        AppLogger.Instance.Info(
+            $"REMOTE SAVE -> file={fileName}  size={System.Text.Encoding.UTF8.GetByteCount(setupText)} bytes");
+
+        return PostAsync<SaveResult>("/api/setups/save", new SaveSetupRequest
         {
-            Car       = car,
-            Track     = track,
-            FileName  = fileName,
-            SetupText = setupText,
+            Car      = car,
+            Track    = track,
+            FileName = fileName,
+            Content  = setupText,
             Overwrite = overwrite,
         });
+    }
 
     // ── Core HTTP helpers ─────────────────────────────────────────────────────
 

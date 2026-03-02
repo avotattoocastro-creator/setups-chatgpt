@@ -25,10 +25,11 @@ public sealed class SetupItem
 /// <summary>Body for POST /api/setups/save</summary>
 public sealed class SaveSetupRequest
 {
-    public string Car       { get; set; } = string.Empty;
-    public string Track     { get; set; } = string.Empty;
-    public string FileName  { get; set; } = string.Empty;
-    public string SetupText { get; set; } = string.Empty;
+    public string Car      { get; set; } = string.Empty;
+    public string Track    { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    /// <summary>Raw INI text of the setup. Must match the Agent field name "content".</summary>
+    public string Content  { get; set; } = string.Empty;
     public bool   Overwrite { get; set; } = true;
 }
 
