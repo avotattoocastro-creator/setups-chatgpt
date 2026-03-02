@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AvoPerformanceSetupAI.Services.Agent;
 
 // ── DTOs returned / sent by AgentApiClient ────────────────────────────────────
@@ -31,6 +33,7 @@ public sealed class SaveSetupRequest
     /// <summary>Raw INI text of the setup.</summary>
     public string SetupText { get; set; } = string.Empty;
     public bool   Overwrite { get; set; } = true;
+    public bool   Versioned { get; set; } = true;
 }
 
 /// <summary>Response from POST /api/setup/save</summary>
@@ -77,11 +80,16 @@ public sealed class AgentAdminState
     /// <summary>True when Assetto Corsa is detected as running.</summary>
     public bool   AcRunning               { get; set; }
 
-    /// <summary>True when the Agent has a valid shared-memory connection to AC.</summary>
+    /// <summary>True when the Agent has a valid shared-memory connection to AC.
+    /// The Agent reports this field as "acConnected" in its JSON response.</summary>
+    [JsonPropertyName("acConnected")]
     public bool   SharedMemoryConnected   { get; set; }
 
     /// <summary>The car folder name currently active in the simulator, e.g. "ks_porsche_911_gt3_r".</summary>
     public string ActiveCarId             { get; set; } = string.Empty;
+
+    /// <summary>The track folder name currently active in the simulator, e.g. "monza".</summary>
+    public string ActiveTrackId           { get; set; } = string.Empty;
 }
 
 /// <summary>
