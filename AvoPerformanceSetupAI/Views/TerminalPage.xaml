@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="AvoPerformanceSetupAI.Views.TerminalPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:AvoPerformanceSetupAI.Models"
+    Background="{StaticResource CarbonBackgroundBrush}"
+    RequestedTheme="Dark">
+
+    <Page.Resources>
+
+        <!-- Log row template -->
+        <DataTemplate x:Key="LogEntryTemplate" x:DataType="models:LogEntry">
+            <Grid Padding="0,2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="56" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Timestamp -->
+                <TextBlock Grid.Column="0"
+                           Text="{x:Bind TimestampText}"
+                           FontFamily="Consolas"
+                           FontSize="12"
+                           Foreground="#FF607070"
+                           VerticalAlignment="Center"/>
+
+                <!-- Category badge -->
+                <Border Grid.Column="1"
+                        CornerRadius="3"
+                        Padding="4,1"
+                        Margin="4,0"
+                        VerticalAlignment="Center"
+                        Background="{x:Bind Category, Converter={StaticResource CategoryToBadgeBrushConverter}}">
+                    <TextBlock Text="{x:Bind CategoryText}"
+                               FontFamily="Consolas"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="#FF0A1414"
+                               HorizontalAlignment="Center"/>
+                </Border>
+
+                <!-- Message -->
+                <TextBlock Grid.Column="2"
+                           Text="{x:Bind Message}"
+                           FontFamily="Consolas"
+                           FontSize="12"
+                           Foreground="{x:Bind Category, Converter={StaticResource CategoryToTextBrushConverter}}"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"/>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ── Header bar ── -->
+        <Border Grid.Row="0"
+                Background="#FF0A1414"
+                BorderBrush="#FF2E4040"
+                BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Title -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="▶" FontSize="14" Foreground="#FF00B4B4" VerticalAlignment="Center"/>
+                    <TextBlock Text="Terminal — Registro de Procesos" FontSize="14" FontWeight="SemiBold"
+                               Foreground="#FFE0F0F0" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Filter pills -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Button Content="ALL"   Tag=""      Style="{StaticResource FilterPillStyle}" Click="FilterButton_Click"/>
+                    <Button Content="INFO"  Tag="INFO"  Style="{StaticResource FilterPillStyle}" Click="FilterButton_Click"/>
+                    <Button Content="AI"    Tag="AI"    Style="{StaticResource FilterPillStyle}" Click="FilterButton_Click"/>
+                    <Button Content="DATA"  Tag="DATA"  Style="{StaticResource FilterPillStyle}" Click="FilterButton_Click"/>
+                    <Button Content="WARN"  Tag="WARN"  Style="{StaticResource FilterPillStyle}" Click="FilterButton_Click"/>
+                    <Button Content="ERROR" Tag="ERROR" Style="{StaticResource FilterPillStyle}" Click="FilterButton_Click"/>
+                </StackPanel>
+
+                <!-- Clear button -->
+                <Button Grid.Column="2"
+                        Content="🗑 Limpiar"
+                        Command="{x:Bind ViewModel.ClearLogCommand}"
+                        Background="#FF1E2A2A"
+                        Foreground="#FF8AABAB"
+                        BorderBrush="#FF2E4040"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="10,4"
+                        FontSize="12"/>
+            </Grid>
+        </Border>
+
+        <!-- ── Log list ── -->
+        <ScrollViewer Grid.Row="1"
+                      x:Name="LogScrollViewer"
+                      Background="#FF060E0E"
+                      Padding="12,8"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl x:Name="LogItemsControl"
+                          ItemsSource="{x:Bind ViewModel.FilteredEntries}"
+                          ItemTemplate="{StaticResource LogEntryTemplate}"/>
+        </ScrollViewer>
+
+        <!-- ── Status bar ── -->
+        <Border Grid.Row="2"
+                Background="#FF0A1414"
+                BorderBrush="#FF2E4040"
+                BorderThickness="0,1,0,0"
+                Padding="16,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           x:Name="StatusBarText"
+                           Text="● En línea  |  Mostrando todos los eventos"
+                           FontFamily="Consolas"
+                           FontSize="11"
+                           Foreground="#FF00B4B4"
+                           VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1"
+                           x:Name="EntryCountText"
+                           Text="0 entradas"
+                           FontFamily="Consolas"
+                           FontSize="11"
+                           Foreground="#FF607070"
+                           VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Page>
