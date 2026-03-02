@@ -213,9 +213,9 @@ public sealed partial class ConfiguracionPage : Page
         // ── Display result ────────────────────────────────────────────────────
         bool allOk = pingOk && stateOk && wsOk;
         var sb = new StringBuilder();
-        sb.AppendLine($"{(pingOk  ? "✔" : "✗")} Ping {(pingOk ? "OK" : "FAIL")}");
-        sb.AppendLine($"{(stateOk ? "✔" : "✗")} State {stateDetail}");
-        sb.Append(    $"{(wsOk   ? "✔" : "✗")} WS {(wsOk ? "OK" : $"FAIL: {wsResult}")}");
+        sb.AppendLine($"{(pingOk  ? "✔" : "✗")} Ping {url}/api/ping → {(pingOk ? "OK" : "FAIL")}");
+        sb.AppendLine($"{(stateOk ? "✔" : "✗")} State {url}/api/admin/state → {stateDetail}");
+        sb.Append(    $"{(wsOk   ? "✔" : "✗")} WS {s.AgentWsUrl} → {(wsOk ? "OK" : $"FAIL: {wsResult}")}");
 
         AgentTestResultText.Text = sb.ToString();
         AgentTestResultText.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(allOk
@@ -232,7 +232,8 @@ public sealed partial class ConfiguracionPage : Page
 
     private void UpdateAgentBaseUrlDisplay()
     {
-        AgentBaseUrlDisplayBox.Text = SetupSettings.Instance.AgentBaseUrl;
+        AgentBaseUrlDisplayBox.Text  = SetupSettings.Instance.AgentBaseUrl;
+        AgentStateUrlDisplayBox.Text = $"{SetupSettings.Instance.AgentBaseUrl}/api/admin/state";
     }
 
     private void WatermarkOpacity_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)

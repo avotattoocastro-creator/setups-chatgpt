@@ -221,6 +221,15 @@
                                  BorderBrush="#FF2E4040" FontFamily="Consolas" FontSize="12"/>
                     </StackPanel>
 
+                    <!-- State check URL (read-only) -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Estado check URL (calculado)" Foreground="#FF8AABAB" FontSize="11"/>
+                        <TextBox x:Name="AgentStateUrlDisplayBox"
+                                 IsReadOnly="True"
+                                 Background="#FF0A1818" Foreground="#FF8AABAB"
+                                 BorderBrush="#FF2E4040" FontFamily="Consolas" FontSize="12"/>
+                    </StackPanel>
+
                     <!-- Token -->
                     <StackPanel Spacing="4">
                         <TextBlock Text="Token de autenticación (X-API-TOKEN)" Foreground="#FF8AABAB" FontSize="11"/>
