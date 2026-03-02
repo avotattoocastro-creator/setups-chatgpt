@@ -127,23 +127,13 @@ public partial class SessionsViewModel : ObservableObject
     /// </summary>
     public string RunButtonLabel => IsHotlapMode ? "▶ RUN (Hotlap)" : "▶ RUN (Live)";
 
-    public string ApplyButtonLabel => IsHotlapMode ? "💾 Save Proposal" : "⚡ Apply Live";
+    public string ApplyButtonLabel => "💾 Apply Proposal";
 
     /// <summary>
     /// Tooltip shown under the Apply/Save button.
-    /// Shows the live-apply blocked reason in Live mode, or a generic description.
     /// </summary>
     public string ApplyButtonTooltip
-    {
-        get
-        {
-            if (IsHotlapMode) return "Saves a versioned setup file (offline).";
-            var reason = LiveApplyBlockedReason;
-            return reason is not null
-                ? $"Live Apply unavailable: {reason}"
-                : "Applies changes live to the running simulator and saves a versioned file.";
-        }
-    }
+        => "Builds and saves a versioned INI file with the AI proposals applied.";
 
     /// <summary>
     /// Short connection status badge text for the Telemetry page header.
@@ -1329,38 +1319,41 @@ private bool CanStop() => IsRunning;
     /// <summary>
     /// Returns a new versioned file name based on <paramref name="baseName"/>.
     /// <para>
-    /// Pattern: <c>{stem}__AI__v{NNN}{ext}</c>, where NNN is the next three-digit
-    /// integer after the highest existing version found in <see cref="SetupFiles"/>.
+    /// Pattern: <c>{stem}_AI_{yyyyMMdd_HHmmss}_v{NNN}{ext}</c>, where NNN is the next
+    /// three-digit integer after the highest existing version found in <see cref="SetupFiles"/>
+    /// for files sharing the same base stem.
     /// </para>
     /// <example>
-    /// If <c>SetupFiles</c> contains "Supra MKIV Race mid__AI__v001.ini" and
-    /// "Supra MKIV Race mid__AI__v002.ini", the next name returned is
-    /// "Supra MKIV Race mid__AI__v003.ini".
+    /// If <c>SetupFiles</c> contains "Supra MKIV Race mid_AI_20260301_120000_v001.ini" and
+    /// "Supra MKIV Race mid_AI_20260301_120010_v002.ini", the next name returned is
+    /// "Supra MKIV Race mid_AI_20260301_120030_v003.ini".
     /// </example>
     /// </summary>
     private string NextVersionedFileName(string baseName)
     {
-        var ext    = Path.GetExtension(baseName);
-        var stem   = Path.GetFileNameWithoutExtension(baseName);
-        var prefix = $"{stem}__AI__v";
+        var ext      = Path.GetExtension(baseName);
+        var stem     = Path.GetFileNameWithoutExtension(baseName);
+        var aiPrefix = $"{stem}_AI_";
+        var ts       = DateTime.Now.ToString("yyyyMMdd_HHmmss");
 
+        // Find the highest existing v### among all _AI_ versioned files for this base stem.
         int maxVersion = 0;
         foreach (var f in SetupFiles)
         {
             var fStem = Path.GetFileNameWithoutExtension(f);
-            if (fStem.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            {
-                // Only accept pure-digit suffixes (e.g. "001", "002") to avoid false matches.
-                var numStr = fStem[prefix.Length..];
-                if (numStr.Length > 0 &&
-                    numStr.All(char.IsDigit) &&
-                    int.TryParse(numStr, out int n) &&
-                    n > maxVersion)
-                    maxVersion = n;
-            }
+            if (!fStem.StartsWith(aiPrefix, StringComparison.OrdinalIgnoreCase)) continue;
+            // fStem pattern: {stem}_AI_{ts}_v{NNN}
+            var vIdx = fStem.LastIndexOf("_v", StringComparison.OrdinalIgnoreCase);
+            if (vIdx < 0) continue;
+            var numStr = fStem[(vIdx + 2)..];
+            if (numStr.Length > 0 &&
+                numStr.All(char.IsDigit) &&
+                int.TryParse(numStr, out int n) &&
+                n > maxVersion)
+                maxVersion = n;
         }
 
-        return $"{prefix}{(maxVersion + 1):D3}{ext}";
+        return $"{stem}_AI_{ts}_v{(maxVersion + 1):D3}{ext}";
     }
 
 
@@ -1486,51 +1479,33 @@ private bool CanStop() => IsRunning;
         try
         {
             string savedPath;
-            bool   appliedOk     = true;
-            string? appliedReason = null;
 
             if (IsRemoteMode)
             {
-                // ── Remote: INI-only save via Agent (no live apply) ──
+                // ── Remote: INI-only save via Agent ──────────────────────────────
                 var saver = CreateSaver(); // RemoteSetupSaver
                 savedPath = await saver.SaveAsync(CarId, TrackId, versionedName, modifiedText);
-                appliedOk     = true;
-                appliedReason = null;
             }
             else
             {
-                // ── Local: write the versioned file ─────────────────────────────
+                // ── Local: write the versioned file ──────────────────────────────
                 var destFolder = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId);
                 Directory.CreateDirectory(destFolder);
                 var filePath = Path.Combine(destFolder, versionedName);
                 await File.WriteAllTextAsync(filePath, modifiedText);
-                savedPath    = filePath;
-                appliedOk    = true;
-                appliedReason = null;
+                savedPath = filePath;
                 AppLogger.Instance.Ai("Propuesta de IA aplicada al archivo de setup.");
             }
 
-            // ── Status evaluation (3-state) ──────────────────────────────────
-            // Hotlap mode: save-only — savedOk==true is always green regardless of appliedOk.
-            // Live mode:   savedOk==true && appliedOk==false → yellow warning.
-            // Both modes:  savedOk==false or HTTP error      → red (caught in catch block).
-            if (!appliedOk && !IsHotlapMode)
-            {
-                var reason    = string.IsNullOrEmpty(appliedReason)
-                    ? "Simulador no detectado"
-                    : appliedReason;
-                StatusText = "⚠ SAVED – NOT APPLIED LIVE";
-                AppLogger.Instance.Warn($"Setup guardado pero no aplicado en vivo: {reason}");
-                AddLog($"SAVED – NOT APPLIED LIVE: {reason}", "WRN");
-            }
-            else
-            {
-                StatusText = "● PROPOSAL APPLIED";
-            }
+            // ── Show "Saved OK" with file name and location ──────────────────────
+            var locationInfo = IsRemoteMode
+                ? $"  [{CarId}/{TrackId}/{versionedName}]"
+                : $"  {savedPath}";
+            StatusText = $"✔ Saved OK: {versionedName}";
 
             AppliedFileLabel = $"{SelectedSetupFile} → {versionedName}";
-            AppLogger.Instance.Info($"Setup guardado como: {versionedName}  →  {savedPath}");
-            AddLog($"Applied → {versionedName}", "AI");
+            AppLogger.Instance.Info($"Setup guardado como: {versionedName}{locationInfo}");
+            AddLog($"Saved OK → {versionedName}", "AI");
 
             // Capture base label before SelectedSetupFile changes.
             var baseLabel = Path.GetFileNameWithoutExtension(SelectedSetupFile ?? "base");
@@ -1558,58 +1533,6 @@ private bool CanStop() => IsRunning;
             AddLog(failMsg, "ERR");
             StatusText = "● PROPOSAL ERROR";
             AppLogger.Instance.Error($"Error al aplicar propuesta: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Calls POST /api/reference/setup/apply. If the agent returns 404 (endpoint not yet
-    /// implemented), falls back silently to the legacy /save endpoint.
-    /// Returns a named tuple with (savedPath, versionedName, appliedOk, appliedReason).
-    /// <para>
-    /// <c>appliedOk</c> is <see langword="false"/> when the Agent saved the file but could not
-    /// apply it live (e.g. simulator not running) — this is NOT an error condition.
-    /// </para>
-    /// Throws <see cref="AgentException"/> only when <c>savedOk == false</c> or HTTP fails.
-    /// </summary>
-    private async Task<(string savedPath, string versionedName, bool appliedOk, string? appliedReason)>
-        TryApplyRemoteAsync(
-            ApplySetupRequestDto applyReq, string localVersionedName, string modifiedText)
-    {
-        try
-        {
-            var result = await GetOrCreateAgentClient().ApplySetupAsync(applyReq);
-
-            // savedOk==false (or old-agent success==false) → true error
-            if (!result.SavedOk)
-                throw new AgentException(
-                    string.IsNullOrEmpty(result.Reason)
-                        ? "El Agent no pudo guardar la propuesta."
-                        : result.Reason!);
-
-            // Prefer the name the Agent chose (it knows existing versioned files).
-            var finalName = !string.IsNullOrEmpty(result.SavedFile)
-                ? result.SavedFile
-                : localVersionedName;
-
-            System.Diagnostics.Debug.WriteLine($"[SessionsVM] APPLY REMOTE: OK → {finalName}");
-            AddLog($"APPLY REMOTE: OK → {finalName}");
-            AppLogger.Instance.Ai($"Propuesta de IA guardada por el Agent: {result.Path}");
-
-            // Return appliedOk/reason so caller can show an appropriate warning.
-            return (result.Path, finalName, result.AppliedOk, result.Reason);
-        }
-        catch (AgentException aex) when (
-            aex.HttpStatus == System.Net.HttpStatusCode.NotFound)
-        {
-            // Agent does not yet implement /apply — fall back to /save.
-            AppLogger.Instance.Warn(
-                "Endpoint /api/reference/setup/apply no disponible. Usando /save como fallback.");
-            AddLog("APPLY fallback → /api/reference/setups/save", "WRN");
-
-            var savedPath = await CreateSaver().SaveAsync(
-                applyReq.Car, applyReq.Track, localVersionedName, modifiedText);
-            // Fallback save has no live-apply concept, so appliedOk=true by convention.
-            return (savedPath, localVersionedName, appliedOk: true, appliedReason: null);
         }
     }
 

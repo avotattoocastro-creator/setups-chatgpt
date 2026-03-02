@@ -18,7 +18,6 @@ public sealed class AgentApiClient : IDisposable
     private static readonly TimeSpan PingTimeout   = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan BrowseTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan SaveTimeout   = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan ApplyTimeout  = TimeSpan.FromSeconds(30);
 
     // Retry delays for reference-browsing endpoints (between attempts 1→2, 2→3, 3→4)
     private static readonly TimeSpan[] BrowseRetryDelays =
@@ -117,7 +116,7 @@ public sealed class AgentApiClient : IDisposable
             $"&track={Uri.EscapeDataString(track)}" +
             $"&file={Uri.EscapeDataString(fileName)}");
 
-    // ── Save / apply ──────────────────────────────────────────────────────────
+    // ── Save ──────────────────────────────────────────────────────────────────
 
     /// <summary>POST /api/reference/setups/save — persists a generated setup on the simulator PC.</summary>
     public Task<SaveResult> SaveSetupAsync(
@@ -130,14 +129,6 @@ public sealed class AgentApiClient : IDisposable
             SetupText = setupText,
             Overwrite = overwrite,
         });
-
-    /// <summary>
-    /// POST /api/reference/setup/apply — sends a list of INI key changes to the Agent.
-    /// The Agent applies them to <paramref name="request"/>.BaseFile and saves a versioned copy.
-    /// Returns the saved file name on success.
-    /// </summary>
-    public Task<ApplySetupResult> ApplySetupAsync(ApplySetupRequestDto request)
-        => PostWithTimeoutAsync<ApplySetupResult>("/api/reference/setup/apply", request, ApplyTimeout);
 
     // ── Core HTTP helpers ─────────────────────────────────────────────────────
 
@@ -359,15 +350,34 @@ public sealed class AgentApiClient : IDisposable
     private static async Task EnsureSuccessAsync(HttpResponseMessage res)
     {
         if (res.IsSuccessStatusCode) return;
-        var body = await res.Content.ReadAsStringAsync();
+        var body      = await res.Content.ReadAsStringAsync();
+        var errorText = TryExtractJsonError(body) ?? body;
         throw res.StatusCode switch
         {
             System.Net.HttpStatusCode.Unauthorized =>
                 new AgentException("Token inválido (401).", System.Net.HttpStatusCode.Unauthorized),
             System.Net.HttpStatusCode.NotFound     =>
                 new AgentException("Endpoint no encontrado (404).", System.Net.HttpStatusCode.NotFound),
-            _ => new AgentException($"Error HTTP {(int)res.StatusCode}: {body}", res.StatusCode)
+            _ => new AgentException($"Error HTTP {(int)res.StatusCode}: {errorText}", res.StatusCode)
         };
+    }
+
+    /// <summary>
+    /// Tries to extract a plain error string from a JSON body of the form
+    /// <c>{ "error": "message" }</c>. Returns <see langword="null"/> when the body is
+    /// not that shape (so callers can fall back to the raw body).
+    /// </summary>
+    private static string? TryExtractJsonError(string body)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("error", out var err) &&
+                err.ValueKind == JsonValueKind.String)
+                return err.GetString();
+        }
+        catch { /* not JSON or unexpected shape */ }
+        return null;
     }
 
     public void Dispose() => _http.Dispose();
