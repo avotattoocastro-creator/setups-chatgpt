@@ -473,6 +473,19 @@ public partial class SessionsViewModel : ObservableObject
         return new LocalSetupSaver();
     }
 
+    /// <summary>
+    /// Returns the correct <see cref="IProposalSaver"/> implementation based on
+    /// live Agent connectivity — independently of the app Mode dropdown setting.
+    /// </summary>
+    /// <param name="isRemote">
+    /// <see langword="true"/> when the Agent is currently reachable and its base URL is
+    /// configured.  Computed once per save call so it stays stable during the operation.
+    /// </param>
+    private IProposalSaver CreateProposalSaver(bool isRemote)
+        => isRemote
+            ? (IProposalSaver)new RemoteAgentSaver(GetOrCreateAgentClient())
+            : new LocalIniSaver();
+
     // ── Settings change handler ───────────────────────────────────────────────
 
     private void OnSettingsChanged(object? sender, PropertyChangedEventArgs e)
@@ -1288,36 +1301,21 @@ private bool CanStop() => IsRunning;
     [RelayCommand(CanExecute = nameof(CanApply))]
     private async Task ApplyAsync()
     {
+        bool isRemote = IsAgentReachable && !string.IsNullOrWhiteSpace(SetupSettings.Instance.AgentBaseUrl);
+        var modeLabel = isRemote ? "REMOTE" : "LOCAL";
+
         // Pre-save diagnostic log
         AppLogger.Instance.Info(
             $"APPLY: AgentConnected={IsAgentReachable}  " +
             $"AgentBaseUrl={SetupSettings.Instance.AgentBaseUrl}  " +
             $"Mode={SetupSettings.Instance.Mode}  " +
+            $"SaveMode={modeLabel}  " +
             $"BaseFile={SelectedSetupFile}");
 
-        var saver             = CreateSaver();
-
-        // Guard: prohibit local writes when an Agent is active and reachable.
-        // The saver is LocalSetupSaver only when Mode==Local; RemoteSetupSaver handles Remote mode
-        // correctly already.  This guard catches the edge case where Mode is Local but an Agent
-        // is reachable — in that state, writing locally would create ghost files the Agent does
-        // not know about.
-        if (!ShouldWriteLocalIters() && saver is LocalSetupSaver)
-        {
-            var blockMsg =
-                $"LOCAL WRITE BLOCKED — Agent is connected ({SetupSettings.Instance.AgentBaseUrl}) " +
-                $"but Mode is set to Local. To save via Agent: switch Mode to Remote. " +
-                $"To save locally: disconnect the Agent first.";
-            StatusText = "● WRITE BLOCKED";
-            AddLog(blockMsg, "ERR");
-            AppLogger.Instance.Error($"APPLY BLOCKED: {blockMsg}");
-            return;
-        }
-
-        var iniText           = string.Empty;
         var versionedFileName = NextVersionedFileName(SelectedSetupFile!);
 
-        // Read the current setup text (needed for remote save; for local we still copy the file)
+        // Read the current setup text.
+        string iniText;
         try
         {
             iniText = await CreateProvider().ReadSetupTextAsync(CarId, TrackId, SelectedSetupFile!);
@@ -1329,25 +1327,31 @@ private bool CanStop() => IsRunning;
             return;
         }
 
-        try
-        {
-            var savedPath = await saver.SaveAsync(CarId, TrackId, versionedFileName, iniText);
+        var saver  = CreateProposalSaver(isRemote);
+        var req    = new ProposalSaveRequest(CarId, TrackId, versionedFileName, iniText, isRemote);
+        var result = await saver.SaveAsync(req);
 
-            StatusText = "● APPLIED";
-            AppLogger.Instance.Info($"Setup guardado como: {versionedFileName}");
-            AppLogger.Instance.Data(IsRemoteMode
-                ? $"Setup guardado en PC simulador: {savedPath}"
-                : $"Destino: {savedPath}");
+        AppLogger.Instance.Info(
+            $"SAVE RESULT: mode={modeLabel}  ok={result.Ok}  " +
+            $"file={result.File ?? versionedFileName}  reason={result.Reason ?? "—"}");
 
-            // Refresh file list so the new versioned file appears, then select it.
-            await LoadSetupFilesAsync(TrackId);
-            SelectedSetupFile = versionedFileName;
-        }
-        catch (Exception ex)
+        if (!result.Ok)
         {
             StatusText = "● APPLY ERROR";
-            AppLogger.Instance.Error($"Error al guardar el setup: {ex.Message}");
+            AddLog($"APPLY FAILED [{modeLabel}]: {result.Reason}", "ERR");
+            AppLogger.Instance.Error($"APPLY FAILED [{modeLabel}]: {result.Reason}");
+            return;
         }
+
+        StatusText = "● APPLIED";
+        AppLogger.Instance.Info($"Setup guardado como: {versionedFileName}");
+        AppLogger.Instance.Data(isRemote
+            ? $"Setup guardado en PC simulador: {result.File}"
+            : $"Destino: {result.File}");
+
+        // Refresh file list so the new versioned file appears, then select it.
+        await LoadSetupFilesAsync(TrackId);
+        SelectedSetupFile = versionedFileName;
     }
 
     private bool CanApply() => !string.IsNullOrEmpty(SelectedSetupFile);
@@ -1437,11 +1441,15 @@ private bool CanStop() => IsRunning;
 
     private async Task DoApplyProposalAsync()
     {
+        bool isRemote = IsAgentReachable && !string.IsNullOrWhiteSpace(SetupSettings.Instance.AgentBaseUrl);
+        var modeLabel = isRemote ? "REMOTE" : "LOCAL";
+
         // Pre-save diagnostic log
         AppLogger.Instance.Info(
             $"APPLY PROPOSAL: AgentConnected={IsAgentReachable}  " +
             $"AgentBaseUrl={SetupSettings.Instance.AgentBaseUrl}  " +
             $"Mode={SetupSettings.Instance.Mode}  " +
+            $"SaveMode={modeLabel}  " +
             $"BaseFile={SelectedSetupFile}");
 
         // Re-read the current base INI so the diff is always accurate, even if
@@ -1519,76 +1527,52 @@ private bool CanStop() => IsRunning;
         var modifiedText  = string.Join("\n", lines);
         var versionedName = NextVersionedFileName(SelectedSetupFile!);
 
-        try
+        // ── Single central save via IProposalSaver ────────────────────────────
+        var saver     = CreateProposalSaver(isRemote);
+        var req       = new ProposalSaveRequest(CarId, TrackId, versionedName, modifiedText, isRemote);
+        var saveResult = await saver.SaveAsync(req);
+
+        AppLogger.Instance.Info(
+            $"SAVE RESULT: mode={modeLabel}  ok={saveResult.Ok}  " +
+            $"file={saveResult.File ?? versionedName}  reason={saveResult.Reason ?? "—"}");
+
+        if (!saveResult.Ok)
         {
-            string savedPath;
-
-            if (IsRemoteMode)
-            {
-                // ── Remote: INI-only save via Agent ──────────────────────────────
-                var saver = CreateSaver(); // RemoteSetupSaver
-                savedPath = await saver.SaveAsync(CarId, TrackId, versionedName, modifiedText);
-            }
-            else
-            {
-                // ── Local: write the versioned file ──────────────────────────────
-                // Guard: if an Agent is reachable, local writes are prohibited — no fallback.
-                if (!ShouldWriteLocalIters())
-                {
-                    var blockMsg =
-                        $"LOCAL WRITE BLOCKED — Agent is connected ({SetupSettings.Instance.AgentBaseUrl}). " +
-                        $"To save via Agent: ensure Mode is set to Remote. " +
-                        $"To save locally: disconnect the Agent first.";
-                    AddLog(blockMsg, "ERR");
-                    AppLogger.Instance.Error($"APPLY PROPOSAL BLOCKED: {blockMsg}");
-                    StatusText = "● WRITE BLOCKED (REMOTE)";
-                    return;
-                }
-                var destFolder = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId);
-                Directory.CreateDirectory(destFolder);
-                var filePath = Path.Combine(destFolder, versionedName);
-                await File.WriteAllTextAsync(filePath, modifiedText);
-                savedPath = filePath;
-                AppLogger.Instance.Ai("Propuesta de IA aplicada al archivo de setup.");
-            }
-
-            // ── Show "Saved OK" with file name and location ──────────────────────
-            var locationInfo = IsRemoteMode
-                ? $"  [{CarId}/{TrackId}/{versionedName}]"
-                : $"  {savedPath}";
-            StatusText = $"✔ Saved OK: {versionedName}";
-
-            AppliedFileLabel = $"{SelectedSetupFile} → {versionedName}";
-            AppLogger.Instance.Info($"Setup guardado como: {versionedName}{locationInfo}");
-            AddLog($"Saved OK → {versionedName}", "AI");
-
-            // Capture base label before SelectedSetupFile changes.
-            var baseLabel = Path.GetFileNameWithoutExtension(SelectedSetupFile ?? "base");
-
-            // Refresh file list, select the new versioned file.
-            await LoadSetupFilesAsync(TrackId);
-            SelectedSetupFile = versionedName;
-
-            // Push base-vs-proposed diff to SetupDiffViewModel for the Setup Diff tab.
-            SetupDiffViewModel.Shared.Load(
-                baseText:      baseIniText,
-                proposedText:  modifiedText,
-                baseLabel:     baseLabel,
-                proposedLabel: Path.GetFileNameWithoutExtension(versionedName));
-
-            // Clear proposals after a successful apply — user must press RUN again to get new ones.
-            LastProposals.Clear();
-            _hasProposalFromRun = false;
-        }
-        catch (Exception ex)
-        {
-            var inner   = ex.InnerException is not null ? $" ({ex.InnerException.Message})" : string.Empty;
-            var failMsg = $"APPLY ERROR [{ex.GetType().Name}] {ex.Message}{inner}";
+            var failMsg = $"APPLY PROPOSAL FAILED [{modeLabel}]: {saveResult.Reason}";
             System.Diagnostics.Debug.WriteLine($"[SessionsVM] {failMsg}");
             AddLog(failMsg, "ERR");
             StatusText = "● PROPOSAL ERROR";
-            AppLogger.Instance.Error($"Error al aplicar propuesta: {ex.Message}");
+            AppLogger.Instance.Error(failMsg);
+            return;
         }
+
+        // ── Successful save ───────────────────────────────────────────────────
+        var locationInfo = isRemote
+            ? $"  [{CarId}/{TrackId}/{versionedName}]"
+            : $"  {saveResult.File}";
+        StatusText = $"✔ Saved OK: {versionedName}";
+
+        AppliedFileLabel = $"{SelectedSetupFile} → {versionedName}";
+        AppLogger.Instance.Info($"Setup guardado como: {versionedName}{locationInfo}");
+        AddLog($"Saved OK [{modeLabel}] → {versionedName}", "AI");
+
+        // Capture base label before SelectedSetupFile changes.
+        var baseLabel = Path.GetFileNameWithoutExtension(SelectedSetupFile ?? "base");
+
+        // Refresh file list, select the new versioned file.
+        await LoadSetupFilesAsync(TrackId);
+        SelectedSetupFile = versionedName;
+
+        // Push base-vs-proposed diff to SetupDiffViewModel for the Setup Diff tab.
+        SetupDiffViewModel.Shared.Load(
+            baseText:      baseIniText,
+            proposedText:  modifiedText,
+            baseLabel:     baseLabel,
+            proposedLabel: Path.GetFileNameWithoutExtension(versionedName));
+
+        // Clear proposals after a successful apply — user must press RUN again to get new ones.
+        LastProposals.Clear();
+        _hasProposalFromRun = false;
     }
 
     private bool CanApplyProposal()
