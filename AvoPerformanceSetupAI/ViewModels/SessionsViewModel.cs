@@ -66,6 +66,7 @@ public partial class SessionsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanApplyProposalPublic))]
     [NotifyPropertyChangedFor(nameof(LiveApplyBlockedReason))]
     [NotifyPropertyChangedFor(nameof(ApplyButtonTooltip))]
+    [NotifyPropertyChangedFor(nameof(ApplyButtonLabel))]
     [NotifyCanExecuteChangedFor(nameof(ApplyProposalCommand))]
     private bool _isAgentReachable;
 
@@ -127,7 +128,16 @@ public partial class SessionsViewModel : ObservableObject
     /// </summary>
     public string RunButtonLabel => IsHotlapMode ? "▶ RUN (Hotlap)" : "▶ RUN (Live)";
 
-    public string ApplyButtonLabel => "💾 Apply Proposal";
+    public string ApplyButtonLabel
+        => (IsRemoteMode || IsAgentReachable) ? "💾 Save Proposal (REMOTE)" : "💾 Apply Proposal";
+
+    /// <summary>
+    /// Returns <see langword="false"/> when a remote Agent is active, signalling that
+    /// automatic local-disk writes of versioned setup files are prohibited.
+    /// A connected Agent is the authoritative save target; no local fallback is allowed.
+    /// </summary>
+    private bool ShouldWriteLocalIters()
+        => !(IsAgentReachable && !string.IsNullOrWhiteSpace(SetupSettings.Instance.AgentBaseUrl));
 
     /// <summary>
     /// Tooltip shown under the Apply/Save button.
@@ -474,6 +484,7 @@ public partial class SessionsViewModel : ObservableObject
                 break;
             case nameof(SetupSettings.Mode):
                 OnPropertyChanged(nameof(IsRemoteMode));
+                OnPropertyChanged(nameof(ApplyButtonLabel));
                 _ = LoadCarsAsync(SetupSettings.Instance.RootFolder);
                 // Start or stop agent polling when app mode changes.
                 if (SetupSettings.Instance.Mode == AppMode.Remote)
@@ -1277,7 +1288,32 @@ private bool CanStop() => IsRunning;
     [RelayCommand(CanExecute = nameof(CanApply))]
     private async Task ApplyAsync()
     {
+        // Pre-save diagnostic log
+        AppLogger.Instance.Info(
+            $"APPLY: AgentConnected={IsAgentReachable}  " +
+            $"AgentBaseUrl={SetupSettings.Instance.AgentBaseUrl}  " +
+            $"Mode={SetupSettings.Instance.Mode}  " +
+            $"BaseFile={SelectedSetupFile}");
+
         var saver             = CreateSaver();
+
+        // Guard: prohibit local writes when an Agent is active and reachable.
+        // The saver is LocalSetupSaver only when Mode==Local; RemoteSetupSaver handles Remote mode
+        // correctly already.  This guard catches the edge case where Mode is Local but an Agent
+        // is reachable — in that state, writing locally would create ghost files the Agent does
+        // not know about.
+        if (!ShouldWriteLocalIters() && saver is LocalSetupSaver)
+        {
+            var blockMsg =
+                $"LOCAL WRITE BLOCKED — Agent is connected ({SetupSettings.Instance.AgentBaseUrl}) " +
+                $"but Mode is set to Local. To save via Agent: switch Mode to Remote. " +
+                $"To save locally: disconnect the Agent first.";
+            StatusText = "● WRITE BLOCKED";
+            AddLog(blockMsg, "ERR");
+            AppLogger.Instance.Error($"APPLY BLOCKED: {blockMsg}");
+            return;
+        }
+
         var iniText           = string.Empty;
         var versionedFileName = NextVersionedFileName(SelectedSetupFile!);
 
@@ -1401,6 +1437,13 @@ private bool CanStop() => IsRunning;
 
     private async Task DoApplyProposalAsync()
     {
+        // Pre-save diagnostic log
+        AppLogger.Instance.Info(
+            $"APPLY PROPOSAL: AgentConnected={IsAgentReachable}  " +
+            $"AgentBaseUrl={SetupSettings.Instance.AgentBaseUrl}  " +
+            $"Mode={SetupSettings.Instance.Mode}  " +
+            $"BaseFile={SelectedSetupFile}");
+
         // Re-read the current base INI so the diff is always accurate, even if
         // _baseIniText was set from a previous load.
         string baseIniText;
@@ -1489,6 +1532,18 @@ private bool CanStop() => IsRunning;
             else
             {
                 // ── Local: write the versioned file ──────────────────────────────
+                // Guard: if an Agent is reachable, local writes are prohibited — no fallback.
+                if (!ShouldWriteLocalIters())
+                {
+                    var blockMsg =
+                        $"LOCAL WRITE BLOCKED — Agent is connected ({SetupSettings.Instance.AgentBaseUrl}). " +
+                        $"To save via Agent: ensure Mode is set to Remote. " +
+                        $"To save locally: disconnect the Agent first.";
+                    AddLog(blockMsg, "ERR");
+                    AppLogger.Instance.Error($"APPLY PROPOSAL BLOCKED: {blockMsg}");
+                    StatusText = "● WRITE BLOCKED (REMOTE)";
+                    return;
+                }
                 var destFolder = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId);
                 Directory.CreateDirectory(destFolder);
                 var filePath = Path.Combine(destFolder, versionedName);
