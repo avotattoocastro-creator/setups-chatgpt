@@ -1,0 +1,11 @@
+## .gitignore for Visual Studio WinUI 3 project
+.vs/
+bin/
+obj/
+*.user
+*.suo
+.DS_Store
+AppPackages/
+BundleArtifacts/
+*.msix
+*.appx
