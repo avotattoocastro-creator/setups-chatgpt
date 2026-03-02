@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!--
+    Workaround for GetLatestMSVCVersion task crashing when Visual Studio 18 Preview /
+    Insiders is installed without the C++ workload (VC\Tools\MSVC directory absent).
+
+    Directory.Build.props is imported before any NuGet-package targets, so this
+    UsingTask declaration takes precedence (MSBuild uses the first definition found).
+    The safe version below checks that VC\Tools\MSVC exists before enumerating it.
+  -->
+  <!--
+    In .NET 8.0+ the RID compatibility graph is disabled by default, which means
+    version-specific RIDs such as win10-x64, win10-x86, and win10-arm64 that are
+    used by Microsoft.WindowsAppSDK native assets are no longer resolved
+    automatically.  Setting UseRidGraph=true re-enables the full graph so that
+    those assets are found at build and publish time.
+    See https://aka.ms/dotnet/rid-usage for details.
+  -->
+  <PropertyGroup>
+    <UseRidGraph>true</UseRidGraph>
+  </PropertyGroup>
+
+  <UsingTask TaskName="GetLatestMSVCVersion"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <!-- All three outputs are required by the Windows App SDK .targets that invoke this task. -->
+      <VCToolsVersion ParameterType="System.String" Output="true" />
+      <MSVCDirectoryPath ParameterType="System.String" Output="true" />
+      <LatestMSVCVersion ParameterType="System.String" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+          // Check both standard Program Files locations so the task works regardless
+          // of whether Visual Studio is installed as 64-bit or 32-bit.
+          string[] programFilesRoots = new[]
+          {
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+          };
+
+          string latestVersion = string.Empty;
+          string latestPath    = string.Empty;
+          foreach (string pfRoot in programFilesRoots)
+          {
+            string vsBase = Path.Combine(pfRoot, "Microsoft Visual Studio");
+            if (!Directory.Exists(vsBase))
+              continue;
+            foreach (string majorDir in Directory.GetDirectories(vsBase))
+            {
+              foreach (string editionDir in Directory.GetDirectories(majorDir))
+              {
+                string msvcPath = Path.Combine(editionDir, "VC", "Tools", "MSVC");
+                if (!Directory.Exists(msvcPath))
+                  continue;
+                foreach (string versionDir in Directory.GetDirectories(msvcPath))
+                {
+                  string v = Path.GetFileName(versionDir);
+                  if (string.Compare(v, latestVersion, StringComparison.OrdinalIgnoreCase) > 0)
+                  {
+                    latestVersion = v;
+                    latestPath    = versionDir;
+                  }
+                }
+              }
+            }
+          }
+          VCToolsVersion    = latestVersion;
+          MSVCDirectoryPath = latestPath;
+          LatestMSVCVersion = latestVersion;
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+</Project>
