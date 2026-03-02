@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="AvoPerformanceSetupAI.Views.SesionesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:AvoPerformanceSetupAI.Models"
+    Background="{StaticResource CarbonBackgroundBrush}"
+    RequestedTheme="Dark">
+
+    <Grid Margin="16" ColumnSpacing="16">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="320" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ══════════════════════════════════════════════
+             LEFT COLUMN: Config + Setups Table
+             ══════════════════════════════════════════════ -->
+        <StackPanel Grid.Column="0" Spacing="16">
+
+            <!-- Config Card -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <Grid ColumnSpacing="12" RowSpacing="14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Row 0: Labels -->
+                    <TextBlock Grid.Column="0" Grid.Row="0" Text="Car ID" Foreground="#FF8AABAB" FontSize="11"/>
+                    <TextBlock Grid.Column="1" Grid.Row="0" Text="Track ID" Foreground="#FF8AABAB" FontSize="11"/>
+                    <TextBlock Grid.Column="2" Grid.Row="0" Text="Source" Foreground="#FF8AABAB" FontSize="11"/>
+                    <TextBlock Grid.Column="3" Grid.Row="0" Text="Mode" Foreground="#FF8AABAB" FontSize="11"/>
+
+                    <!-- Row 1: Values -->
+                    <ComboBox Grid.Column="0" Grid.Row="1"
+                              ItemsSource="{Binding Cars}"
+                              SelectedItem="{Binding CarId, Mode=TwoWay}"
+                              PlaceholderText="— Seleccionar coche —"
+                              Background="#FF0F2020" Foreground="#FFE0F0F0"
+                              BorderBrush="#FF2E4040"
+                              HorizontalAlignment="Stretch"/>
+                    <ComboBox Grid.Column="1" Grid.Row="1"
+                              ItemsSource="{Binding Tracks}"
+                              SelectedItem="{Binding TrackId, Mode=TwoWay}"
+                              PlaceholderText="— Seleccionar circuito —"
+                              Background="#FF0F2020" Foreground="#FFE0F0F0"
+                              BorderBrush="#FF2E4040"
+                              HorizontalAlignment="Stretch"/>
+                    <ComboBox Grid.Column="2" Grid.Row="1"
+                              ItemsSource="{Binding SetupSources}"
+                              SelectedItem="{Binding SetupSource, Mode=TwoWay}"
+                              MinWidth="120"/>
+                    <ComboBox Grid.Column="3" Grid.Row="1"
+                              ItemsSource="{Binding Modes}"
+                              SelectedItem="{Binding Mode, Mode=TwoWay}"
+                              MinWidth="100"/>
+                </Grid>
+            </Border>
+
+            <!-- Setup Files from disk -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel>
+                    <TextBlock Text="Archivos de Setup" Foreground="#FFE0F0F0" FontWeight="SemiBold"
+                               Margin="0,0,0,4"/>
+                    <TextBlock x:Name="NoSetupFilesHint"
+                               Text="Configura la carpeta raíz en la pestaña Configuración y selecciona coche y circuito."
+                               Foreground="#FF607070"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,8"
+                               Visibility="{Binding SetupFilesHintVisibility}"/>
+                    <ListView
+                        ItemsSource="{Binding SetupFiles}"
+                        SelectedItem="{Binding SelectedSetupFile, Mode=TwoWay}"
+                        MaxHeight="160"
+                        Background="Transparent"
+                        SelectionMode="Single">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}"
+                                           FontFamily="Consolas"
+                                           FontSize="12"
+                                           Foreground="#FFB0D8D8"
+                                           Padding="4,2"/>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+
+            <!-- Setups List -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel>
+                    <TextBlock Text="Setups" Foreground="#FFE0F0F0" FontWeight="SemiBold"
+                               Margin="0,0,0,4"/>
+                    <!-- Column headers -->
+                    <Grid Margin="0,0,0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="60"/>
+                            <ColumnDefinition Width="80"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Setup"    Foreground="#FF607070" FontSize="11" FontWeight="SemiBold" FontFamily="Consolas"/>
+                        <TextBlock Grid.Column="1" Text="Best Lap" Foreground="#FF607070" FontSize="11" FontWeight="SemiBold" FontFamily="Consolas"/>
+                        <TextBlock Grid.Column="2" Text="Iter"     Foreground="#FF607070" FontSize="11" FontWeight="SemiBold" FontFamily="Consolas"/>
+                        <TextBlock Grid.Column="3" Text="Exported" Foreground="#FF607070" FontSize="11" FontWeight="SemiBold" FontFamily="Consolas"/>
+                    </Grid>
+                    <ListView
+                        x:Name="SetupsGrid"
+                        ItemsSource="{Binding Iterations}"
+                        SelectedItem="{Binding SelectedIteration, Mode=TwoWay}"
+                        MaxHeight="340"
+                        Background="Transparent"
+                        SelectionMode="Single">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="Padding" Value="8,3"/>
+                                <Setter Property="MinHeight" Value="0"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SetupIteration">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="60"/>
+                                        <ColumnDefinition Width="80"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{x:Bind Setup,    Mode=OneWay}" Foreground="#FFB0D8D8" FontFamily="Consolas" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind BestLap,  Mode=OneWay}" Foreground="#FFE0F0F0" FontFamily="Consolas" FontSize="12"/>
+                                    <TextBlock Grid.Column="2" Text="{x:Bind Iter,     Mode=OneWay}" Foreground="#FFE0F0F0" FontFamily="Consolas" FontSize="12"/>
+                                    <CheckBox  Grid.Column="3" IsChecked="{x:Bind Exported, Mode=OneWay}" IsEnabled="False" Margin="-8,0,0,0"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+
+            <!-- Action Buttons Row -->
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="📂 Carpeta" Style="{StaticResource SecondaryActionButton}"
+                        Command="{Binding SelectRootFolderCommand}"/>
+                <Button Content="▶ Start" Style="{StaticResource AccentActionButton}"
+                        Command="{Binding StartCommand}"/>
+                <Button Content="⏹ Stop"  Style="{StaticResource SecondaryActionButton}"
+                        Command="{Binding StopCommand}"/>
+                <Button Content="✔ Apply" Style="{StaticResource AccentActionButton}"
+                        Command="{Binding ApplyAsyncCommand}"/>
+                <Button Content="⚡ Connect" Style="{StaticResource SecondaryActionButton}"
+                        Command="{Binding ConnectCommand}"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- ══════════════════════════════════════════════
+             RIGHT COLUMN: Status + Brain + Proposals
+             ══════════════════════════════════════════════ -->
+        <StackPanel Grid.Column="1" Spacing="16">
+
+            <!-- Status Card -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Status" Foreground="#FF8AABAB" FontSize="11" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding StatusText}"
+                               Foreground="#FF00D4B4" FontSize="15" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding BrainInfo}" Foreground="#FF8AABAB" FontSize="12"/>
+                </StackPanel>
+            </Border>
+
+            <!-- RUN AI Button (only generates proposals; does not Start/Stop session) -->
+            <Button Content="{Binding RunButtonLabel}"
+                    Style="{StaticResource RunButtonStyle}"
+                    Command="{Binding RunAiCommand}"/>
+
+            <!-- Last Proposal Card -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Last Proposal" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <!-- Category filter -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="Categoría:" Foreground="#FF8AABAB" FontSize="11" VerticalAlignment="Center"/>
+                        <ComboBox ItemsSource="{Binding Categories}"
+                                  SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+                                  Background="#FF0F2020" Foreground="#FFE0F0F0"
+                                  BorderBrush="#FF2E4040" FontSize="11" MinWidth="110"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding CategoryCountInfo}"
+                               Foreground="#FF507070" FontSize="11" TextWrapping="Wrap"/>
+
+                    <!-- Placeholder shown until the user presses RUN -->
+                    <TextBlock Text="⏳ Waiting for AI. Press RUN."
+                               Foreground="#FF506870" FontSize="12" FontStyle="Italic"
+                               Visibility="{Binding NoProposalVisibility}"/>
+
+                    <!-- Proposals list — visible only when a proposal exists -->
+                    <ItemsControl ItemsSource="{Binding LastProposals}"
+                                  Visibility="{Binding ProposalVisibility}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:Proposal">
+                                <Grid ColumnSpacing="8" Margin="0,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Spacing="0">
+                                        <TextBlock Text="{x:Bind Section}" Foreground="#FF507070" FontSize="9"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{x:Bind Parameter}" Foreground="#FFB0D0D0" FontSize="12"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind From}" Foreground="#FF8AABAB" FontSize="12"/>
+                                    <TextBlock Grid.Column="2" Text="→" Foreground="#FF8AABAB" FontSize="12"/>
+                                    <TextBlock Grid.Column="3" Text="{x:Bind To}" Foreground="#FF00D4B4" FontSize="12" FontWeight="SemiBold"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Risk indicator -->
+                    <Border Background="#FF0F2A1A" CornerRadius="4" Padding="8,4" Margin="0,6,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="Risk:" Foreground="#FF8AABAB" FontSize="12"/>
+                            <TextBlock Text="{Binding RiskLevel}" Foreground="#FF00E676" FontSize="12" FontWeight="Bold"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Available parameters from loaded setup -->
+                    <TextBlock Text="{Binding UniverseInfo}"
+                               Foreground="#FF507070" FontSize="11"
+                               Margin="0,4,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Proposal Action Buttons -->
+            <StackPanel Spacing="8">
+                <Button Content="{Binding ApplyButtonLabel}"
+                        ToolTipService.ToolTip="{Binding ApplyButtonTooltip}"
+                        Style="{StaticResource AccentActionButton}"
+                        HorizontalAlignment="Stretch"
+                        Command="{Binding ApplyProposalCommand}"/>
+                <Button Content="↩ Rollback"
+                        Style="{StaticResource SecondaryActionButton}"
+                        HorizontalAlignment="Stretch"
+                        Command="{Binding RollbackCommand}"/>
+                <!-- Applied indicator — shows file applied after proposals are accepted -->
+                <TextBlock Text="{Binding AppliedFileLabel}"
+                           Foreground="#FF00D4B4"
+                           FontFamily="Consolas"
+                           FontSize="10"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
+        </StackPanel>
+    </Grid>
+</Page>
