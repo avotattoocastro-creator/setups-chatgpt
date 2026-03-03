@@ -39,10 +39,38 @@ public sealed class SaveSetupRequest
 /// <summary>Response from POST /api/setup/save</summary>
 public sealed class SaveResult
 {
-    public bool   Success        { get; set; }
-    public string Path           { get; set; } = string.Empty;
-    public string Error          { get; set; } = string.Empty;
+    // Some agents return "success", others return "ok"
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonPropertyName("ok")]
+    public bool SuccessAlias { set => Success = value; }
+
+    // Path or file name of the saved setup
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    // Some agents return fileName instead of path
+    [JsonPropertyName("fileName")]
+    public string FileNameAlias
+    {
+        get => Path;
+        set { if (!string.IsNullOrEmpty(value)) Path = value; }
+    }
+
+    // Error text; some agents use "message"
+    [JsonPropertyName("error")]
+    public string Error { get; set; } = string.Empty;
+
+    [JsonPropertyName("message")]
+    public string ErrorAlias
+    {
+        get => Error;
+        set { if (!string.IsNullOrEmpty(value)) Error = value; }
+    }
+
     /// <summary>The final file name chosen by the Agent (may differ from the requested FileName).</summary>
+    [JsonPropertyName("savedFileName")]
     public string SavedFileName  { get; set; } = string.Empty;
 }
 
