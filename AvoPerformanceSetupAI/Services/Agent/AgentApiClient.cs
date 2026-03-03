@@ -18,7 +18,6 @@ public sealed class AgentApiClient : IDisposable
     private static readonly TimeSpan PingTimeout   = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan BrowseTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan SaveTimeout   = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan ApplyTimeout  = TimeSpan.FromSeconds(30);
 
     // Retry delays for reference-browsing endpoints (between attempts 1→2, 2→3, 3→4)
     private static readonly TimeSpan[] BrowseRetryDelays =
@@ -42,7 +41,9 @@ public sealed class AgentApiClient : IDisposable
         // Use InfiniteTimeSpan so individual CancellationTokenSource instances control each request.
         _http    = new HttpClient { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
         if (!string.IsNullOrWhiteSpace(token))
-            _http.DefaultRequestHeaders.Add("X-API-TOKEN", token);
+            token = token?.Trim() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(token))
+            _http.DefaultRequestHeaders.Add("X-AVO-TOKEN", token);
     }
 
     // ── Connectivity ──────────────────────────────────────────────────────────
@@ -117,27 +118,81 @@ public sealed class AgentApiClient : IDisposable
             $"&track={Uri.EscapeDataString(track)}" +
             $"&file={Uri.EscapeDataString(fileName)}");
 
-    // ── Save / apply ──────────────────────────────────────────────────────────
+    // ── Save ──────────────────────────────────────────────────────────────────
 
-    /// <summary>POST /api/reference/setups/save — persists a generated setup on the simulator PC.</summary>
-    public Task<SaveResult> SaveSetupAsync(
-        string car, string track, string fileName, string setupText, bool overwrite = true)
-        => PostAsync<SaveResult>("/api/reference/setups/save", new SaveSetupRequest
+    /// <summary>POST /api/setup/save — persists a generated setup on the simulator PC.</summary>
+    public async Task<SaveResult> SaveSetupAsync(
+        string car, string track, string fileName, string setupText, bool overwrite = true, bool versioned = false)
+    {
+        if (string.IsNullOrWhiteSpace(setupText))
+            throw new AgentException("REMOTE SAVE aborted: content is empty.");
+
+        var url = $"{_baseUrl}/api/setup/save";
+        var dto = new SaveSetupRequest
         {
-            Car       = car,
-            Track     = track,
+            CarId     = car,
+            TrackId   = track,
             FileName  = fileName,
             SetupText = setupText,
             Overwrite = overwrite,
-        });
+            Versioned = versioned,
+        };
+        AppLogger.Instance.Info(
+            $"SAVE JSON -> car={dto.CarId}, track={dto.TrackId}, file={dto.FileName}, length={dto.SetupText?.Length}");
+
+        SaveResult result;
+        try
+        {
+            result = await PostAsync<SaveResult>("/api/setup/save", dto);
+        }
+        catch (AgentException ex)
+        {
+            var statusPart = ex.HttpStatus.HasValue
+                ? $" HTTP {(int)ex.HttpStatus.Value}"
+                : string.Empty;
+            AppLogger.Instance.Error(
+                $"REMOTE SAVE FAILED{statusPart}  url={url}  {ex.Message}");
+            throw;
+        }
+
+        if (!result.Success)
+        {
+            var errMsg = string.IsNullOrEmpty(result.Error)
+                ? $"El Agent rechazó el guardado (success=false sin mensaje) — car={car} track={track} file={fileName}"
+                : result.Error;
+            // Normalize the error so callers always receive a filled message without exceptions
+            // on logical (non-HTTP) failures.
+            result.Error = errMsg;
+            AppLogger.Instance.Error($"REMOTE SAVE FAILED  url={url}  {errMsg}");
+            return result;
+        }
+
+        var savedName = string.IsNullOrEmpty(result.SavedFileName) ? fileName : result.SavedFileName;
+        AppLogger.Instance.Info($"Setup guardado correctamente: {savedName}");
+        return result;
+    }
 
     /// <summary>
-    /// POST /api/reference/setup/apply — sends a list of INI key changes to the Agent.
-    /// The Agent applies them to <paramref name="request"/>.BaseFile and saves a versioned copy.
-    /// Returns the saved file name on success.
+    /// GET /api/setups/versions — returns the list of existing versioned files for a given
+    /// car/track/base combination, allowing callers to compute the next version number.
+    /// Returns an empty <see cref="VersionsResponse"/> when the endpoint is not reachable.
     /// </summary>
-    public Task<ApplySetupResult> ApplySetupAsync(ApplySetupRequestDto request)
-        => PostWithTimeoutAsync<ApplySetupResult>("/api/reference/setup/apply", request, ApplyTimeout);
+    public async Task<VersionsResponse> GetVersionsAsync(string car, string track, string baseFile)
+    {
+        try
+        {
+            return await GetAsync<VersionsResponse>(
+                $"/api/setups/versions" +
+                $"?car={Uri.EscapeDataString(car)}" +
+                $"&track={Uri.EscapeDataString(track)}" +
+                $"&base={Uri.EscapeDataString(baseFile)}");
+        }
+        catch
+        {
+            // If the endpoint is unavailable, return an empty list so versioning starts at v001.
+            return new VersionsResponse();
+        }
+    }
 
     // ── Core HTTP helpers ─────────────────────────────────────────────────────
 
@@ -359,15 +414,34 @@ public sealed class AgentApiClient : IDisposable
     private static async Task EnsureSuccessAsync(HttpResponseMessage res)
     {
         if (res.IsSuccessStatusCode) return;
-        var body = await res.Content.ReadAsStringAsync();
+        var body      = await res.Content.ReadAsStringAsync();
+        var errorText = TryExtractJsonError(body) ?? body;
         throw res.StatusCode switch
         {
             System.Net.HttpStatusCode.Unauthorized =>
                 new AgentException("Token inválido (401).", System.Net.HttpStatusCode.Unauthorized),
             System.Net.HttpStatusCode.NotFound     =>
                 new AgentException("Endpoint no encontrado (404).", System.Net.HttpStatusCode.NotFound),
-            _ => new AgentException($"Error HTTP {(int)res.StatusCode}: {body}", res.StatusCode)
+            _ => new AgentException($"Error HTTP {(int)res.StatusCode}: {errorText}", res.StatusCode)
         };
+    }
+
+    /// <summary>
+    /// Tries to extract a plain error string from a JSON body of the form
+    /// <c>{ "error": "message" }</c>. Returns <see langword="null"/> when the body is
+    /// not that shape (so callers can fall back to the raw body).
+    /// </summary>
+    private static string? TryExtractJsonError(string body)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("error", out var err) &&
+                err.ValueKind == JsonValueKind.String)
+                return err.GetString();
+        }
+        catch { /* not JSON or unexpected shape */ }
+        return null;
     }
 
     public void Dispose() => _http.Dispose();

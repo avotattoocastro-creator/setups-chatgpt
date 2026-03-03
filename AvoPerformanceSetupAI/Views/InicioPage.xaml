@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="AvoPerformanceSetupAI.Views.InicioPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource CarbonBackgroundBrush}"
+    RequestedTheme="Dark">
+
+    <Grid Padding="24">
+        <StackPanel Spacing="16">
+            <TextBlock Text="Inicio"
+                       FontSize="24"
+                       FontWeight="SemiBold"
+                       Foreground="#FFE0F0F0"/>
+            <TextBlock Text="Bienvenido a AvoPerformanceSetupAI. Usa las pestañas para configurar, gestionar sesiones y telemetría."
+                       Foreground="#FF8AABAB"
+                       TextWrapping="Wrap"/>
+
+            <!-- Selector rápido de coche y pista (reutiliza bindings de Sesiones) -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Selecciona coche y pista"
+                               FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <Grid ColumnSpacing="12" RowSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Column="0" Grid.Row="0" Text="Car ID" Foreground="#FF8AABAB" FontSize="11"/>
+                        <TextBlock Grid.Column="1" Grid.Row="0" Text="Track ID" Foreground="#FF8AABAB" FontSize="11"/>
+
+                        <ComboBox Grid.Column="0" Grid.Row="1"
+                                  ItemsSource="{Binding Cars}"
+                                  SelectedItem="{Binding CarId, Mode=TwoWay}"
+                                  PlaceholderText="— Seleccionar coche —"
+                                  Background="#FF0F2020" Foreground="#FFE0F0F0"
+                                  BorderBrush="#FF2E4040"
+                                  HorizontalAlignment="Stretch"/>
+                        <ComboBox Grid.Column="1" Grid.Row="1"
+                                  ItemsSource="{Binding Tracks}"
+                                  SelectedItem="{Binding TrackId, Mode=TwoWay}"
+                                  PlaceholderText="— Seleccionar circuito —"
+                                  Background="#FF0F2020" Foreground="#FFE0F0F0"
+                                  BorderBrush="#FF2E4040"
+                                  HorizontalAlignment="Stretch"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Grid>
+</Page>

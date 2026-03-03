@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AvoPerformanceSetupAI.Services.Agent;
 
 // ── DTOs returned / sent by AgentApiClient ────────────────────────────────────
@@ -25,87 +27,78 @@ public sealed class SetupItem
 /// <summary>Body for POST /api/setup/save</summary>
 public sealed class SaveSetupRequest
 {
-    public string Car       { get; set; } = string.Empty;
-    public string Track     { get; set; } = string.Empty;
+    public string CarId     { get; set; } = string.Empty;
+    public string TrackId   { get; set; } = string.Empty;
     public string FileName  { get; set; } = string.Empty;
+    /// <summary>Raw INI text of the setup.</summary>
     public string SetupText { get; set; } = string.Empty;
     public bool   Overwrite { get; set; } = true;
+    public bool   Versioned { get; set; } = false;
 }
 
 /// <summary>Response from POST /api/setup/save</summary>
 public sealed class SaveResult
 {
-    public bool   Success { get; set; }
-    public string Path    { get; set; } = string.Empty;
-    public string Error   { get; set; } = string.Empty;
+    // Some agents return "success", others return "ok"
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonPropertyName("ok")]
+    public bool SuccessAlias { set => Success = value; }
+
+    // Path or file name of the saved setup
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    // Some agents return fileName instead of path
+    [JsonPropertyName("fileName")]
+    public string FileNameAlias
+    {
+        get => Path;
+        set { if (!string.IsNullOrEmpty(value)) Path = value; }
+    }
+
+    // Error text; some agents use "message"
+    [JsonPropertyName("error")]
+    public string Error { get; set; } = string.Empty;
+
+    [JsonPropertyName("message")]
+    public string ErrorAlias
+    {
+        get => Error;
+        set { if (!string.IsNullOrEmpty(value)) Error = value; }
+    }
+
+    /// <summary>The final file name chosen by the Agent (may differ from the requested FileName).</summary>
+    [JsonPropertyName("savedFileName")]
+    public string SavedFileName  { get; set; } = string.Empty;
 }
 
-// ── POST /api/reference/setup/apply ──────────────────────────────────────────
-
-/// <summary>One INI change in an <see cref="ApplySetupRequestDto"/>.</summary>
-public sealed class ApplySetupChangeDto
-{
-    public string Section { get; set; } = string.Empty;
-    public string Key     { get; set; } = string.Empty;
-    public string Value   { get; set; } = string.Empty;
-}
-
-/// <summary>
-/// Body for POST /api/reference/setup/apply — applies a list of INI key changes
-/// to the specified base file and (optionally) saves a versioned copy.
-/// </summary>
+/// <summary>Body for POST /api/setup/apply</summary>
 public sealed class ApplySetupRequestDto
 {
-    public string                    Car                 { get; set; } = string.Empty;
-    public string                    Track               { get; set; } = string.Empty;
-    public string                    BaseFile            { get; set; } = string.Empty;
-    public List<ApplySetupChangeDto> Changes             { get; set; } = [];
-    public bool                      CreateVersionedCopy { get; set; } = true;
-    public string?                   Reason              { get; set; }
+    public string Car        { get; set; } = string.Empty;
+    public string Track      { get; set; } = string.Empty;
+    public string File       { get; set; } = string.Empty;
+    public string IniContent { get; set; } = string.Empty;
+    public bool   Versioned  { get; set; } = true;
+    public string Tag        { get; set; } = string.Empty;
 }
 
-/// <summary>Response from POST /api/reference/setup/apply.</summary>
+/// <summary>Response from POST /api/setup/apply</summary>
 public sealed class ApplySetupResult
 {
-    // ── New Agent response shape ───────────────────────────────────────────────
+    public bool   SavedOk   { get; set; }
+    public string SavedFile { get; set; } = string.Empty;
+    public string SavedPath { get; set; } = string.Empty;
+    public bool   AppliedOk { get; set; }
+    public string Reason    { get; set; } = string.Empty;
+}
 
-    /// <summary>
-    /// <see langword="true"/> when the versioned copy was written to disk successfully.
-    /// This is the primary success indicator — the client should treat the operation
-    /// as a success whenever <see cref="SavedOk"/> is <see langword="true"/>.
-    /// </summary>
-    public bool SavedOk { get; set; }
-
-    /// <summary>
-    /// <see langword="true"/> when the changes were also applied to the simulator
-    /// process in real time. May be <see langword="false"/> even on a successful save
-    /// (e.g. simulator not running). <em>Not</em> an error condition.
-    /// </summary>
-    public bool AppliedOk { get; set; }
-
-    /// <summary>
-    /// Human-readable explanation when <see cref="AppliedOk"/> is <see langword="false"/>,
-    /// e.g. "Simulator not detected". <see langword="null"/> when <see cref="AppliedOk"/>
-    /// is <see langword="true"/>.
-    /// </summary>
-    public string? Reason { get; set; }
-
-    /// <summary>File name of the saved (versioned) setup, e.g. "Supra MKIV Race mid__AI__v003.ini".</summary>
-    public string  SavedFile { get; set; } = string.Empty;
-
-    public string  Path { get; set; } = string.Empty;
-
-    // ── Backward-compat aliases (old Agent returned "success"/"error") ────────
-
-    /// <summary>
-    /// Alias for <see cref="SavedOk"/>. Old Agent versions return a <c>"success"</c>
-    /// JSON property; new Agent versions return <c>"savedOk"</c>. Setting either
-    /// updates the same underlying state.
-    /// </summary>
-    public bool    Success { get => SavedOk; set => SavedOk = value; }
-
-    /// <summary>Error message from old Agent response shape. Mapped as the <see cref="Reason"/>.</summary>
-    public string? Error   { get => Reason; set => Reason = value; }
+/// <summary>Response from GET /api/setups/versions</summary>
+public sealed class VersionsResponse
+{
+    public List<string> Files { get; set; } = new();
 }
 
 /// <summary>
@@ -117,11 +110,16 @@ public sealed class AgentAdminState
     /// <summary>True when Assetto Corsa is detected as running.</summary>
     public bool   AcRunning               { get; set; }
 
-    /// <summary>True when the Agent has a valid shared-memory connection to AC.</summary>
+    /// <summary>True when the Agent has a valid shared-memory connection to AC.
+    /// The Agent reports this field as "acConnected" in its JSON response.</summary>
+    [JsonPropertyName("acConnected")]
     public bool   SharedMemoryConnected   { get; set; }
 
     /// <summary>The car folder name currently active in the simulator, e.g. "ks_porsche_911_gt3_r".</summary>
     public string ActiveCarId             { get; set; } = string.Empty;
+
+    /// <summary>The track folder name currently active in the simulator, e.g. "monza".</summary>
+    public string ActiveTrackId           { get; set; } = string.Empty;
 }
 
 /// <summary>

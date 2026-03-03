@@ -4,6 +4,11 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Windows.Storage.Pickers;
 using AvoPerformanceSetupAI.Services;
 using AvoPerformanceSetupAI.Services.Agent;
+using System.Text;
+using System.Net.WebSockets;
+using System.Threading;
+using Microsoft.UI;
+using Microsoft.UI.Xaml.Media;
 
 namespace AvoPerformanceSetupAI.Views;
 
@@ -46,6 +51,7 @@ public sealed partial class ConfiguracionPage : Page
         RemoteHostBox.Text       = SetupSettings.Instance.RemoteHost;
         RemotePortBox.Value      = SetupSettings.Instance.RemotePort;
         RemoteTokenBox.Password  = SetupSettings.Instance.RemoteToken;
+        UpdateAgentBaseUrlDisplay();
         UpdateTokenWarning();
     }
 
@@ -129,12 +135,16 @@ public sealed partial class ConfiguracionPage : Page
     private void RemoteHostBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         SetupSettings.Instance.RemoteHost = RemoteHostBox.Text;
+        UpdateAgentBaseUrlDisplay();
     }
 
     private void RemotePortBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs e)
     {
         if (!double.IsNaN(e.NewValue))
+        {
             SetupSettings.Instance.RemotePort = (int)e.NewValue;
+            UpdateAgentBaseUrlDisplay();
+        }
     }
 
     private void RemoteTokenBox_PasswordChanged(object sender, RoutedEventArgs e)
@@ -145,17 +155,73 @@ public sealed partial class ConfiguracionPage : Page
 
     private async void TestAgent_Click(object sender, RoutedEventArgs e)
     {
-        AgentTestResultText.Text = "Probando...";
+        var s   = SetupSettings.Instance;
+        var url = s.AgentBaseUrl;
+
+        AppLogger.Instance.Info($"Connecting to Agent: {url}");
+        AgentTestResultText.Text = $"Probando {url}…";
         AgentTestResultText.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(
             Microsoft.UI.ColorHelper.FromArgb(255, 138, 171, 171));
 
-        var s = SetupSettings.Instance;
         using var client = new AgentApiClient(s.RemoteHost, s.RemotePort, s.RemoteToken);
-        bool ok = await client.PingAsync();
 
-        AgentTestResultText.Text = ok ? "✔ Agent accesible" : "✗ Agent no accesible";
-        AgentTestResultText.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(ok
-            ? Microsoft.UI.ColorHelper.FromArgb(255,  0, 212, 180)
+        // ── Ping ──────────────────────────────────────────────────────────────
+        bool pingOk = await client.PingAsync();
+        AppLogger.Instance.Info(
+            $"Ping {url}/api/ping → {(pingOk ? "OK" : "FAIL")}");
+
+        // ── Admin state ───────────────────────────────────────────────────────
+        bool stateOk;
+        string stateDetail;
+        try
+        {
+            var state = await client.GetAdminStateAsync();
+            stateOk    = state is not null;
+            stateDetail = stateOk
+                ? $"OK (AC={state!.AcRunning}, Car={state.ActiveCarId})"
+                : "FAIL (null response)";
+        }
+        catch (Exception ex)
+        {
+            stateOk     = false;
+            stateDetail = $"FAIL: {ex.Message}";
+        }
+        AppLogger.Instance.Info($"State {url}/api/admin/state → {stateDetail}");
+
+        // ── WebSocket ─────────────────────────────────────────────────────────
+        bool   wsOk = false;
+        string wsResult;
+        try
+        {
+            using var wsCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var ws    = new ClientWebSocket();
+            await ws.ConnectAsync(new Uri(s.AgentWsUrl), wsCts.Token);
+            wsOk     = true;
+            wsResult = "OK";
+            try
+            {
+                await ws.CloseAsync(
+                    WebSocketCloseStatus.NormalClosure, "Test",
+                    CancellationToken.None);
+            }
+            catch { /* ignore graceful-close errors */ }
+        }
+        catch (Exception ex)
+        {
+            wsResult = ex.Message;
+        }
+        AppLogger.Instance.Info($"WS {s.AgentWsUrl} → {(wsOk ? "OK" : $"FAIL: {wsResult}")}");
+
+        // ── Display result ────────────────────────────────────────────────────
+        bool allOk = pingOk && stateOk && wsOk;
+        var sb = new StringBuilder();
+        sb.AppendLine($"{(pingOk  ? "✔" : "✗")} Ping {url}/api/ping → {(pingOk ? "OK" : "FAIL")}");
+        sb.AppendLine($"{(stateOk ? "✔" : "✗")} State {url}/api/admin/state → {stateDetail}");
+        sb.Append(    $"{(wsOk   ? "✔" : "✗")} WS {s.AgentWsUrl} → {(wsOk ? "OK" : $"FAIL: {wsResult}")}");
+
+        AgentTestResultText.Text = sb.ToString();
+        AgentTestResultText.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(allOk
+            ? Microsoft.UI.ColorHelper.FromArgb(255,   0, 212, 180)
             : Microsoft.UI.ColorHelper.FromArgb(255, 255,  80,  80));
     }
 
@@ -166,6 +232,12 @@ public sealed partial class ConfiguracionPage : Page
         TokenWarningBorder.Visibility = showWarning ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    private void UpdateAgentBaseUrlDisplay()
+    {
+        AgentBaseUrlDisplayBox.Text  = SetupSettings.Instance.AgentBaseUrl;
+        AgentStateUrlDisplayBox.Text = $"{SetupSettings.Instance.AgentBaseUrl}/api/admin/state";
+    }
+
     private void WatermarkOpacity_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
         const double step = 0.01;
@@ -173,5 +245,20 @@ public sealed partial class ConfiguracionPage : Page
         SetupSettings.Instance.BrandWatermarkOpacity = v;
         if (WatermarkOpacityValueText is not null)
             WatermarkOpacityValueText.Text = $"{v * 100:F0}%";
+    }
+
+    private void SaveConfig_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SetupSettings.Instance.SaveToDisk();
+            SaveStatusText.Text = "Configuración guardada";
+            SaveStatusText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 0, 212, 180));
+        }
+        catch (Exception ex)
+        {
+            SaveStatusText.Text = $"Error al guardar: {ex.Message}";
+            SaveStatusText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 80, 80));
+        }
     }
 }

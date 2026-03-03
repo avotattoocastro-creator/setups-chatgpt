@@ -162,7 +162,7 @@
                 <Button Content="⏹ Stop"  Style="{StaticResource SecondaryActionButton}"
                         Command="{Binding StopCommand}"/>
                 <Button Content="✔ Apply" Style="{StaticResource AccentActionButton}"
-                        Command="{Binding ApplyAsyncCommand}"/>
+                        Command="{Binding ApplyProposalCommand}"/>
                 <Button Content="⚡ Connect" Style="{StaticResource SecondaryActionButton}"
                         Command="{Binding ConnectCommand}"/>
             </StackPanel>
