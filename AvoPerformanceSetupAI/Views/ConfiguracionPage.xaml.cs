@@ -7,6 +7,8 @@ using AvoPerformanceSetupAI.Services.Agent;
 using System.Text;
 using System.Net.WebSockets;
 using System.Threading;
+using Microsoft.UI;
+using Microsoft.UI.Xaml.Media;
 
 namespace AvoPerformanceSetupAI.Views;
 
@@ -243,5 +245,20 @@ public sealed partial class ConfiguracionPage : Page
         SetupSettings.Instance.BrandWatermarkOpacity = v;
         if (WatermarkOpacityValueText is not null)
             WatermarkOpacityValueText.Text = $"{v * 100:F0}%";
+    }
+
+    private void SaveConfig_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SetupSettings.Instance.SaveToDisk();
+            SaveStatusText.Text = "Configuración guardada";
+            SaveStatusText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 0, 212, 180));
+        }
+        catch (Exception ex)
+        {
+            SaveStatusText.Text = $"Error al guardar: {ex.Message}";
+            SaveStatusText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 80, 80));
+        }
     }
 }
