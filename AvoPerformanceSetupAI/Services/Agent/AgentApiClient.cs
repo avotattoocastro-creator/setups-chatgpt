@@ -41,7 +41,9 @@ public sealed class AgentApiClient : IDisposable
         // Use InfiniteTimeSpan so individual CancellationTokenSource instances control each request.
         _http    = new HttpClient { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
         if (!string.IsNullOrWhiteSpace(token))
-            _http.DefaultRequestHeaders.Add("X-API-TOKEN", token);
+            token = token?.Trim() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(token))
+            _http.DefaultRequestHeaders.Add("X-AVO-TOKEN", token);
     }
 
     // ── Connectivity ──────────────────────────────────────────────────────────
@@ -156,10 +158,13 @@ public sealed class AgentApiClient : IDisposable
         if (!result.Success)
         {
             var errMsg = string.IsNullOrEmpty(result.Error)
-                ? "El Agent rechazó el guardado (success=false sin mensaje)."
+                ? $"El Agent rechazó el guardado (success=false sin mensaje) — car={car} track={track} file={fileName}"
                 : result.Error;
+            // Normalize the error so callers always receive a filled message without exceptions
+            // on logical (non-HTTP) failures.
+            result.Error = errMsg;
             AppLogger.Instance.Error($"REMOTE SAVE FAILED  url={url}  {errMsg}");
-            throw new AgentException(errMsg);
+            return result;
         }
 
         var savedName = string.IsNullOrEmpty(result.SavedFileName) ? fileName : result.SavedFileName;
