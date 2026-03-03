@@ -378,9 +378,12 @@ public partial class SessionsViewModel : ObservableObject
             ApplyProposalCommand.NotifyCanExecuteChanged();
         };
 
-        // If a root folder is already configured, populate cars immediately
+        // If a root folder is already configured, populate cars immediately (Local mode).
         if (!string.IsNullOrEmpty(SetupSettings.Instance.RootFolder))
             _ = LoadCarsAsync(SetupSettings.Instance.RootFolder);
+        // In Remote mode, always load cars from the Agent even if no root folder is set.
+        else if (SetupSettings.Instance.Mode == AppMode.Remote)
+            _ = LoadCarsAsync(string.Empty);
 
         // Start 1-second Agent state polling when in Remote mode.
         if (SetupSettings.Instance.Mode == AppMode.Remote)
@@ -536,6 +539,8 @@ public partial class SessionsViewModel : ObservableObject
         IsAcRunning             = false;
         IsSharedMemoryConnected = false;
         ActiveCarId             = string.Empty;
+
+        Services.Agent.AgentStatusService.Instance.Update(false, false, false);
     }
 
     private async Task PollAgentStateAsync()
@@ -560,6 +565,11 @@ public partial class SessionsViewModel : ObservableObject
                     IsSharedMemoryConnected = state.SharedMemoryConnected;
                     ActiveCarId             = state.ActiveCarId ?? string.Empty;
                 }
+
+                Services.Agent.AgentStatusService.Instance.Update(
+                    IsAgentReachable,
+                    IsAcRunning,
+                    IsSharedMemoryConnected);
 
                 // Auto workflow: when AC becomes available, start auto proposal loop.
                 // When AC goes away, stop it.
@@ -1528,9 +1538,22 @@ private bool CanStop() => IsRunning;
         var versionedName = NextVersionedFileName(SelectedSetupFile!);
 
         // ── Single central save via IProposalSaver ────────────────────────────
-        var saver     = CreateProposalSaver(isRemote);
-        var req       = new ProposalSaveRequest(CarId, TrackId, versionedName, modifiedText, isRemote);
-        var saveResult = await saver.SaveAsync(req);
+        var saver      = CreateProposalSaver(isRemote);
+        var req        = new ProposalSaveRequest(CarId, TrackId, versionedName, modifiedText, isRemote);
+        ProposalSaveResult saveResult;
+        try
+        {
+            saveResult = await saver.SaveAsync(req);
+        }
+        catch (Exception ex)
+        {
+            var failMsg = $"APPLY PROPOSAL FAILED [{modeLabel}]: {ex.Message}";
+            System.Diagnostics.Debug.WriteLine($"[SessionsVM] {failMsg}");
+            AddLog(failMsg, "ERR");
+            StatusText = "● PROPOSAL ERROR";
+            AppLogger.Instance.Error(failMsg);
+            return;
+        }
 
         AppLogger.Instance.Info(
             $"SAVE RESULT: mode={modeLabel}  ok={saveResult.Ok}  " +
@@ -1550,18 +1573,23 @@ private bool CanStop() => IsRunning;
         var locationInfo = isRemote
             ? $"  [{CarId}/{TrackId}/{versionedName}]"
             : $"  {saveResult.File}";
-        StatusText = $"✔ Saved OK: {versionedName}";
+        // Prefer the filename/path returned by the saver (may differ from requested)
+        var savedName = string.IsNullOrWhiteSpace(saveResult.File)
+            ? versionedName
+            : System.IO.Path.GetFileName(saveResult.File);
 
-        AppliedFileLabel = $"{SelectedSetupFile} → {versionedName}";
-        AppLogger.Instance.Info($"Setup guardado como: {versionedName}");
-        AddLog($"Saved OK [{modeLabel}] → {versionedName}", "AI");
+        StatusText = $"✔ Saved OK: {savedName}";
+
+        AppliedFileLabel = $"{SelectedSetupFile} → {savedName}";
+        AppLogger.Instance.Info($"Setup guardado como: {savedName}");
+        AddLog($"Saved OK [{modeLabel}] → {savedName}", "AI");
 
         // Capture base label before SelectedSetupFile changes.
         var baseLabel = Path.GetFileNameWithoutExtension(SelectedSetupFile ?? "base");
 
         // Refresh file list, select the new versioned file.
         await LoadSetupFilesAsync(TrackId);
-        SelectedSetupFile = versionedName;
+        SelectedSetupFile = savedName;
 
         // Push base-vs-proposed diff to SetupDiffViewModel for the Setup Diff tab.
         SetupDiffViewModel.Shared.Load(
