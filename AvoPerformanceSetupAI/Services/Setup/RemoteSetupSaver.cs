@@ -42,9 +42,18 @@ public sealed class RemoteSetupSaver : ISetupSaver
 
         var sequencedName = $"{stem}_AI_{(maxVersion + 1):D3}{ext}";
 
-        // SaveSetupAsync already throws AgentException on HTTP errors and on success=false.
+        // When saving versioned files, let the Agent reject duplicates instead of forcing overwrite.
         var result = await _client.SaveSetupAsync(car, track, sequencedName, setupText,
-            overwrite: true, versioned: false);
+            overwrite: false, versioned: true);
+
+        if (!result.Success)
+        {
+            var reason = string.IsNullOrWhiteSpace(result.Error)
+                ? "El Agent rechazó el guardado."
+                : result.Error;
+            throw new AgentException(reason);
+        }
+
         return result.Path;
     }
 }
