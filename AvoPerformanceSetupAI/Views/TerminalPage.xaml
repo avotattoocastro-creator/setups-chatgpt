@@ -91,17 +91,27 @@
                     <Button Content="ERROR" Tag="ERROR" Style="{StaticResource FilterPillStyle}" Click="FilterButton_Click"/>
                 </StackPanel>
 
-                <!-- Clear button -->
-                <Button Grid.Column="2"
-                        Content="🗑 Limpiar"
-                        Command="{x:Bind ViewModel.ClearLogCommand}"
-                        Background="#FF1E2A2A"
-                        Foreground="#FF8AABAB"
-                        BorderBrush="#FF2E4040"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="10,4"
-                        FontSize="12"/>
+                <!-- Actions -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Content="📋 Copiar"
+                            Click="CopyLog_Click"
+                            Background="#FF1E2A2A"
+                            Foreground="#FF8AABAB"
+                            BorderBrush="#FF2E4040"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="10,4"
+                            FontSize="12"/>
+                    <Button Content="🗑 Limpiar"
+                            Command="{x:Bind ViewModel.ClearLogCommand}"
+                            Background="#FF1E2A2A"
+                            Foreground="#FF8AABAB"
+                            BorderBrush="#FF2E4040"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="10,4"
+                            FontSize="12"/>
+                </StackPanel>
             </Grid>
         </Border>
 
