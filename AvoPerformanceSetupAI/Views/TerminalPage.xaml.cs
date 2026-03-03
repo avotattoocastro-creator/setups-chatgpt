@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Specialized;
+using System.Linq;
+using Windows.ApplicationModel.DataTransfer;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -67,6 +69,20 @@ public sealed partial class TerminalPage : Page
     {
         int count = ViewModel.FilteredEntries.Count;
         EntryCountText.Text = $"{count} entrada{(count == 1 ? "" : "s")}";
+    }
+
+    // ── Copy logs ────────────────────────────────────────────────────────────
+
+    private void CopyLog_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.FilteredEntries.Count == 0) return;
+
+        var text = string.Join(Environment.NewLine,
+            ViewModel.FilteredEntries.Select(entry => entry.FormattedLine));
+
+        var dp = new DataPackage();
+        dp.SetText(text);
+        Clipboard.SetContent(dp);
     }
 }
 
