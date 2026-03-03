@@ -6,13 +6,45 @@
     Background="{StaticResource CarbonBackgroundBrush}"
     RequestedTheme="Dark">
 
-    <ScrollViewer Padding="24">
-        <StackPanel Spacing="16" MaxWidth="600">
-            <TextBlock Text="Configuración" FontSize="24" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
-            <TextBlock Text="Ajustes y preferencias de la aplicación." Foreground="#FF8AABAB"/>
+    <ScrollViewer Padding="24" VerticalScrollBarVisibility="Auto">
+        <Grid ColumnSpacing="16" RowSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="4">
+                <TextBlock Text="Configuración" FontSize="24" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                <TextBlock Text="Ajustes y preferencias de la aplicación." Foreground="#FF8AABAB"/>
+            </StackPanel>
+
+            <!-- Save config action -->
+            <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="10">
+                <Button Content="💾 Guardar configuración"
+                        Click="SaveConfig_Click"
+                        Background="#FF1A2020"
+                        Foreground="#FF00B4B4"
+                        BorderBrush="#FF2E5050" BorderThickness="1"
+                        CornerRadius="6" Padding="12,6"/>
+                <TextBlock x:Name="SaveStatusText"
+                           Foreground="#FF8AABAB"
+                           VerticalAlignment="Center"
+                           FontSize="12"/>
+            </StackPanel>
 
             <!-- Setup Folder -->
-            <Border Background="{StaticResource CardBackgroundBrush}"
+            <Border Grid.Row="2" Grid.Column="0"
+                    Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="12">
@@ -43,7 +75,8 @@
             </Border>
 
             <!-- Output (Destination) Folder -->
-            <Border Background="{StaticResource CardBackgroundBrush}"
+            <Border Grid.Row="2" Grid.Column="1"
+                    Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="12">
@@ -73,94 +106,9 @@
                 </StackPanel>
             </Border>
 
-            <!-- Language Selector -->
-            <Border Background="{StaticResource CardBackgroundBrush}"
-                    BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="20">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Language / Idioma" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
-                    <ComboBox Width="200" SelectedIndex="0">
-                        <ComboBoxItem Content="Español (ES)" />
-                        <ComboBoxItem Content="English (EN)" />
-                    </ComboBox>
-                </StackPanel>
-            </Border>
-
-            <!-- Theme -->
-            <Border Background="{StaticResource CardBackgroundBrush}"
-                    BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="20">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Theme / Tema" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
-                    <ToggleSwitch Header="Dark Mode" IsOn="True" />
-                </StackPanel>
-            </Border>
-
-            <!-- UI Scale -->
-            <Border Background="{StaticResource CardBackgroundBrush}"
-                    BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="20">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Escala de Interfaz (UI Scale)" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
-                    <TextBlock Text="Ajusta el tamaño de fuente global de la interfaz. Rango: 1.0× – 1.6×."
-                               Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
-                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <TextBlock Text="1.0×" Foreground="#FF8AABAB" VerticalAlignment="Center"/>
-                        <Slider x:Name="UiScaleSlider"
-                                Minimum="1.0" Maximum="1.6" StepFrequency="0.05"
-                                Width="260"
-                                ValueChanged="UiScaleSlider_ValueChanged"/>
-                        <TextBlock Text="1.6×" Foreground="#FF8AABAB" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="UiScaleValueText"
-                                   Foreground="#FFE0F0F0" FontWeight="SemiBold"
-                                   VerticalAlignment="Center" MinWidth="42"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-
-            <!-- Branding / Marca de fondo -->
-            <Border Background="{StaticResource CardBackgroundBrush}"
-                    BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="20">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Marca de fondo (Branding)" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
-                    <TextBlock Text="Muestra el logotipo AVO Performance como marca de agua sutil en el fondo de la aplicación."
-                               Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
-                    <ToggleSwitch x:Name="WatermarkEnabledToggle"
-                                  Header="Mostrar marca de fondo"
-                                  Toggled="WatermarkToggle_Toggled"/>
-                    <ToggleSwitch x:Name="SplashScreenToggle"
-                                  Header="Mostrar pantalla de inicio"
-                                  Toggled="SplashScreenToggle_Toggled"/>
-                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <TextBlock Text="Intensidad:" Foreground="#FF8AABAB" VerticalAlignment="Center" MinWidth="80"/>
-                        <Slider x:Name="WatermarkOpacitySlider"
-                                Minimum="0.02" Maximum="0.12" StepFrequency="0.01"
-                                Width="200"
-                                ValueChanged="WatermarkOpacity_ValueChanged"/>
-                        <TextBlock x:Name="WatermarkOpacityValueText"
-                                   Foreground="#FFE0F0F0" FontWeight="SemiBold"
-                                   VerticalAlignment="Center" MinWidth="36"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-
-            <!-- Race View -->
-            <Border Background="{StaticResource CardBackgroundBrush}"
-                    BorderBrush="{StaticResource CardBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="20">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Modo Carrera (Race View)" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
-                    <TextBlock Text="Muestra una vista simplificada con las métricas clave en tamaño grande, optimizada para leer mientras conduces a 1–1.5 metros de la pantalla."
-                               Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
-                    <ToggleSwitch x:Name="RaceViewToggle"
-                                  Header="Activar Modo Carrera"
-                                  Toggled="RaceViewToggle_Toggled"/>
-                </StackPanel>
-            </Border>
-
             <!-- Remote Agent Connection -->
-            <Border Background="{StaticResource CardBackgroundBrush}"
+            <Border Grid.Row="3" Grid.Column="0"
+                    Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="12">
@@ -168,7 +116,6 @@
                     <TextBlock Text="En modo Remote, las carpetas de setup se leen y guardan en el PC simulador a través del Agent."
                                Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
 
-                    <!-- Mode toggle -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <ToggleSwitch x:Name="RemoteModeToggle"
                                       Header="Modo Remote (Agent)"
@@ -176,7 +123,6 @@
                                       MinWidth="0"/>
                     </StackPanel>
 
-                    <!-- Token warning -->
                     <Border x:Name="TokenWarningBorder"
                             Background="#33FF6000" BorderBrush="#FFFF6000"
                             BorderThickness="1" CornerRadius="4" Padding="10,6"
@@ -185,7 +131,6 @@
                                    Foreground="#FFFFA040" FontSize="12" TextWrapping="Wrap"/>
                     </Border>
 
-                    <!-- Host + Port -->
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -212,7 +157,6 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- Computed Agent Base URL (read-only) -->
                     <StackPanel Spacing="4">
                         <TextBlock Text="Agent Base URL (calculado)" Foreground="#FF8AABAB" FontSize="11"/>
                         <TextBox x:Name="AgentBaseUrlDisplayBox"
@@ -221,7 +165,6 @@
                                  BorderBrush="#FF2E4040" FontFamily="Consolas" FontSize="12"/>
                     </StackPanel>
 
-                    <!-- State check URL (read-only) -->
                     <StackPanel Spacing="4">
                         <TextBlock Text="Estado check URL (calculado)" Foreground="#FF8AABAB" FontSize="11"/>
                         <TextBox x:Name="AgentStateUrlDisplayBox"
@@ -230,7 +173,6 @@
                                  BorderBrush="#FF2E4040" FontFamily="Consolas" FontSize="12"/>
                     </StackPanel>
 
-                    <!-- Token -->
                     <StackPanel Spacing="4">
                         <TextBlock Text="Token de autenticación (X-API-TOKEN)" Foreground="#FF8AABAB" FontSize="11"/>
                         <PasswordBox x:Name="RemoteTokenBox"
@@ -240,7 +182,6 @@
                                      PasswordChanged="RemoteTokenBox_PasswordChanged"/>
                     </StackPanel>
 
-                    <!-- Test Agent button -->
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <Button Content="🔌 Probar conexión"
                                 Click="TestAgent_Click"
@@ -249,13 +190,102 @@
                                 CornerRadius="6" Padding="12,6"/>
                     </StackPanel>
 
-                    <!-- Test result (multi-line) -->
                     <TextBlock x:Name="AgentTestResultText"
                                FontFamily="Consolas" FontSize="12"
                                Foreground="#FF8AABAB"
                                TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
-        </StackPanel>
+
+            <!-- Language + Theme + Branding stack -->
+            <StackPanel Grid.Row="3" Grid.Column="1" Spacing="16">
+                <Border Background="{StaticResource CardBackgroundBrush}"
+                        BorderBrush="{StaticResource CardBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="20">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Language / Idioma" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                        <ComboBox Width="200" SelectedIndex="0">
+                            <ComboBoxItem Content="Español (ES)" />
+                            <ComboBoxItem Content="English (EN)" />
+                        </ComboBox>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource CardBackgroundBrush}"
+                        BorderBrush="{StaticResource CardBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="20">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Theme / Tema" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                        <ToggleSwitch Header="Dark Mode" IsOn="True" />
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource CardBackgroundBrush}"
+                        BorderBrush="{StaticResource CardBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="20">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Marca de fondo (Branding)" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                        <TextBlock Text="Muestra el logotipo AVO Performance como marca de agua sutil en el fondo de la aplicación."
+                                   Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
+                        <ToggleSwitch x:Name="WatermarkEnabledToggle"
+                                      Header="Mostrar marca de fondo"
+                                      Toggled="WatermarkToggle_Toggled"/>
+                        <ToggleSwitch x:Name="SplashScreenToggle"
+                                      Header="Mostrar pantalla de inicio"
+                                      Toggled="SplashScreenToggle_Toggled"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="Intensidad:" Foreground="#FF8AABAB" VerticalAlignment="Center" MinWidth="80"/>
+                            <Slider x:Name="WatermarkOpacitySlider"
+                                    Minimum="0.02" Maximum="0.12" StepFrequency="0.01"
+                                    Width="200"
+                                    ValueChanged="WatermarkOpacity_ValueChanged"/>
+                            <TextBlock x:Name="WatermarkOpacityValueText"
+                                       Foreground="#FFE0F0F0" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" MinWidth="36"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+            <!-- Race View -->
+            <Border Grid.Row="5" Grid.Column="1"
+                    Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Modo Carrera (Race View)" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <TextBlock Text="Muestra una vista simplificada con las métricas clave en tamaño grande, optimizada para leer mientras conduces a 1–1.5 metros de la pantalla."
+                               Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
+                    <ToggleSwitch x:Name="RaceViewToggle"
+                                  Header="Activar Modo Carrera"
+                                  Toggled="RaceViewToggle_Toggled"/>
+                </StackPanel>
+            </Border>
+            </StackPanel>
+
+            <!-- UI Scale -->
+            <Border Grid.Row="5" Grid.Column="0"
+                    Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Escala de Interfaz (UI Scale)" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                    <TextBlock Text="Ajusta el tamaño de fuente global de la interfaz. Rango: 1.0× – 1.6×."
+                               Foreground="#FF8AABAB" FontSize="12" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBlock Text="1.0×" Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                        <Slider x:Name="UiScaleSlider"
+                                Minimum="1.0" Maximum="1.6" StepFrequency="0.05"
+                                Width="260"
+                                ValueChanged="UiScaleSlider_ValueChanged"/>
+                        <TextBlock Text="1.6×" Foreground="#FF8AABAB" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="UiScaleValueText"
+                                   Foreground="#FFE0F0F0" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" MinWidth="42"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+
+        </Grid>
     </ScrollViewer>
 </Page>
