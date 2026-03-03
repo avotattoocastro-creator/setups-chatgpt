@@ -6,17 +6,19 @@
     xmlns:local="using:AvoPerformanceSetupAI"
     xmlns:views="using:AvoPerformanceSetupAI.Views"
     xmlns:controls="using:AvoPerformanceSetupAI.Controls"
+    xmlns:agent="using:AvoPerformanceSetupAI.Services.Agent"
     Title="AvoPerformanceSetupAI">
 
     <Grid Background="{StaticResource CarbonBackgroundBrush}" Loaded="RootGrid_Loaded">
         <Grid.RowDefinitions>
             <RowDefinition Height="40" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- Watermark: rendered first (behind everything), spans entire window -->
         <Image x:Name="WatermarkImage"
-               Grid.RowSpan="2"
+               Grid.RowSpan="3"
                Source="ms-appx:///Assets/Brand/avo_performance.png"
                Stretch="Uniform"
                HorizontalAlignment="Center"
@@ -41,8 +43,38 @@
             </StackPanel>
         </Grid>
 
+        <!-- Agent status banner -->
+        <Border Grid.Row="1" Background="#FF0F1A1A" BorderBrush="#FF2E4040" BorderThickness="0,0,0,1" Padding="16,12" MinHeight="56">
+            <Grid ColumnSpacing="24" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <TextBlock Text="🔧" FontSize="18" VerticalAlignment="Center"/>
+                    <TextBlock Text="Estado Agent / Assetto Corsa"
+                               FontSize="15" FontWeight="SemiBold" Foreground="#FFE0F0F0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{x:Bind agent:AgentStatusService.Instance.Summary, Mode=OneWay}"
+                               FontFamily="Consolas"
+                               FontSize="14"
+                               Foreground="#FF00B4B4"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap"
+                               TextTrimming="CharacterEllipsis"
+                               MaxWidth="700"/>
+                </StackPanel>
+                <Image Grid.Column="1"
+                       Source="ms-appx:///Assets/AVOPERFORMANCE.png"
+                       Height="56"
+                       Stretch="Uniform"
+                       VerticalAlignment="Center"
+                       IsHitTestVisible="False"
+                       AutomationProperties.Name="AVO Performance logo"/>
+            </Grid>
+        </Border>
+
         <!-- Main Tab View -->
-        <TabView Grid.Row="1" x:Name="MainTabView"
+        <TabView Grid.Row="2" x:Name="MainTabView"
                  Background="Transparent"
                  TabWidthMode="Equal"
                  IsAddTabButtonVisible="False"
@@ -51,8 +83,8 @@
                 <SolidColorBrush x:Key="TabViewBackground" Color="Transparent" />
             </TabView.Resources>
 
-            <TabViewItem x:Name="TabConfiguracion" Header="Configuración" IsClosable="False">
-                <views:ConfiguracionPage />
+            <TabViewItem x:Name="TabInicio" Header="Inicio" IsClosable="False">
+                <views:InicioPage />
             </TabViewItem>
 
             <TabViewItem x:Name="TabSesiones" Header="Sesiones" IsClosable="False">
@@ -73,6 +105,10 @@
 
             <TabViewItem x:Name="TabIa" Header="🤖 IA" IsClosable="False">
                 <views:IaPage />
+            </TabViewItem>
+
+            <TabViewItem x:Name="TabConfiguracion" Header="Configuración" IsClosable="False">
+                <views:ConfiguracionPage />
             </TabViewItem>
         </TabView>
 
