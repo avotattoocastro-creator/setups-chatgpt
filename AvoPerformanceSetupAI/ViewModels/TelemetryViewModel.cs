@@ -1171,10 +1171,20 @@ public partial class TelemetryViewModel : ObservableObject, IDisposable
         if (sample.AcStatus == (int)AcStatus.Live)
             CheckAcSanity(in sample);
 
-        // 3. Feed new samples into the corner detector (non-blocking)
+        // 3. Session logging: record best laps per car/track/setup
+        SessionLogService.Instance.ProcessSample(
+            sample,
+            SessionsViewModel.Shared.CarId,
+            SessionsViewModel.Shared.TrackId,
+            SessionsViewModel.Shared.SelectedSetupFile);
+
+        // 4. Push live inputs for quick dashboard telemetry
+        SessionsViewModel.Shared.UpdateInputs(sample.Throttle, sample.Brake);
+
+        // 5. Feed new samples into the corner detector (non-blocking)
         _cornerDetector.Update(_telemetryService.Buffer);
 
-        // 4. Reflect the latest completed corner in the bindable properties
+        // 6. Reflect the latest completed corner in the bindable properties
         var latest = _cornerDetector.LatestCorner;
         if (latest.HasValue && latest.Value.CornerIndex != _lastReportedCornerIndex)
         {
