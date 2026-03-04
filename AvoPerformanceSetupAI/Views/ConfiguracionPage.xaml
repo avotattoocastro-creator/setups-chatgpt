@@ -55,6 +55,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <TextBox Grid.Column="0"
                                  x:Name="FolderPathBox"
@@ -64,9 +65,16 @@
                                  Foreground="#FFE0F0F0"
                                  BorderBrush="#FF2E4040"/>
                         <Button Grid.Column="1"
-                                Content="📁 Seleccionar"
+                                Content="📁 Local"
                                 Click="BrowseFolder_Click"
                                 Background="#FF00B4B4"
+                                Foreground="White"
+                                CornerRadius="6"
+                                Padding="12,8"/>
+                        <Button Grid.Column="2"
+                                Content="📡 Agent"
+                                Click="BrowseFolderRemote_Click"
+                                Background="#FF4050A0"
                                 Foreground="White"
                                 CornerRadius="6"
                                 Padding="12,8"/>
