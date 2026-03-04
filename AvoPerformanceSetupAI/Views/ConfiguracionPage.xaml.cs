@@ -100,6 +100,37 @@ public sealed partial class ConfiguracionPage : Page
         }
     }
 
+    private async void BrowseFolderRemote_Click(object sender, RoutedEventArgs e)
+    {
+        var s = SetupSettings.Instance;
+        if (s.Mode != AppMode.Remote)
+        {
+            AppLogger.Instance.Warn("Modo Remote desactivado: activa Remote para usar el selector del Agent.");
+            return;
+        }
+
+        try
+        {
+            using var client = new AgentApiClient(s.RemoteHost, s.RemotePort, s.RemoteToken);
+            var res = await client.BrowseReferenceRootAsync();
+            var path = res?.Path;
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                SetupSettings.Instance.RootFolder = path;
+                FolderPathBox.Text = path;
+                AppLogger.Instance.Info($"Carpeta de setups (Remote) configurada: {path}");
+            }
+            else
+            {
+                AppLogger.Instance.Warn("El Agent no devolvió una ruta de carpeta.");
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Instance.Error($"Error al seleccionar carpeta remota: {ex.Message}");
+        }
+    }
+
     private void UiScaleSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
         // Round to the nearest step to avoid floating-point noise
