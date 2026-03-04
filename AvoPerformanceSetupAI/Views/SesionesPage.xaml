@@ -252,6 +252,75 @@
                 </StackPanel>
             </Border>
 
+            <!-- Setup actual + propuestas IA lado a lado -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Setup actual -->
+                    <StackPanel Grid.Column="0" Spacing="8">
+                        <TextBlock Text="Setup actual" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                        <TextBlock Text="Valores cargados del archivo seleccionado"
+                                   Foreground="#FF507070" FontSize="11"/>
+                        <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding SetupEntries}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:IniEntry">
+                                        <Grid ColumnSpacing="8" Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="120"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="120"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{x:Bind Section}" Foreground="#FF507070" FontSize="11" FontFamily="Consolas"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind Key}" Foreground="#FFB0D0D0" FontSize="12" FontFamily="Consolas" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind Value}" Foreground="#FF8AABAB" FontSize="12" FontFamily="Consolas" TextAlignment="Right"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+
+                    <!-- Propuestas IA -->
+                    <StackPanel Grid.Column="1" Spacing="8">
+                        <TextBlock Text="Propuestas IA" FontWeight="SemiBold" Foreground="#FFE0F0F0"/>
+                        <TextBlock Text="Cambios generados al ejecutar RUN"
+                                   Foreground="#FF507070" FontSize="11"/>
+                        <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding LastProposals}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:Proposal">
+                                        <Grid ColumnSpacing="8" Margin="0,3">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Spacing="0">
+                                                <TextBlock Text="{x:Bind Section}" Foreground="#FF507070" FontSize="9"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{x:Bind Parameter}" Foreground="#FFB0D0D0" FontSize="12"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind From}" Foreground="#FF8AABAB" FontSize="12"/>
+                                            <TextBlock Grid.Column="2" Text="→" Foreground="#FF8AABAB" FontSize="12"/>
+                                            <TextBlock Grid.Column="3" Text="{x:Bind To}" Foreground="#FF00D4B4" FontSize="12" FontWeight="SemiBold"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
             <!-- Proposal Action Buttons -->
             <StackPanel Spacing="8">
                 <Button Content="{Binding ApplyButtonLabel}"
