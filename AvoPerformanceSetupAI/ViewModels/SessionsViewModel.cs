@@ -10,6 +10,7 @@ using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
 using AvoPerformanceSetupAI.Models;
 using AvoPerformanceSetupAI.Services;
 using AvoPerformanceSetupAI.Services.Agent;
@@ -210,12 +211,130 @@ public partial class SessionsViewModel : ObservableObject
     // ── Collections ───────────────────────────────────────────────────────────
     public ObservableCollection<SetupIteration> Iterations { get; } = new();
     public ObservableCollection<Proposal> LastProposals { get; } = new();
+    public ObservableCollection<IniEntry> SetupEntries { get; } = new();
+    public ObservableCollection<SetupEntryProposal> SetupEntryDiffs { get; } = new();
+    public ObservableCollection<SessionLogEntry> SessionLogs => SessionLogService.Instance.Entries;
+
+    // ── Live inputs (throttle/brake) for quick telemetry sparkline ───────────
+    private const int InputHistorySize = 180; // ~9 s at 20 Hz
+    private const double InputChartWidth = 480.0;
+    private const double InputChartHeight = 80.0;
+
+    private readonly List<double> _throttleHistory = new(InputHistorySize + 8);
+    private readonly List<double> _brakeHistory = new(InputHistorySize + 8);
+
+    public PointCollection ThrottlePoints { get; private set; } = new();
+    public PointCollection BrakePoints { get; private set; } = new();
+
+    // ── UI preferences ──────────────────────────────────────────────────────
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ContentFontSizeLabel))]
+    private double _contentFontSize = 12d;
+
+    public string ContentFontSizeLabel => $"{ContentFontSize:F0} pt";
 
     /// <summary>
     /// Diagnostic log entries produced by Apply Proposal and similar commands.
     /// Forwarded to the Agent Logs tab by <see cref="TelemetryViewModel"/>.
     /// </summary>
     public ObservableCollection<AgentLogEntry> Logs { get; } = new();
+
+    private void RebuildEntryDiffs()
+    {
+        SetupEntryDiffs.Clear();
+
+        if (SetupEntries.Count == 0)
+            return;
+
+        var lookup = new Dictionary<string, Proposal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in LastProposals)
+        {
+            var key = $"{p.Section}|{p.Parameter}";
+            lookup[key] = p; // last one wins, avoids duplicate-key exceptions
+        }
+
+        foreach (var entry in SetupEntries)
+        {
+            var key = $"{entry.Section}|{entry.Key}";
+            if (lookup.TryGetValue(key, out var proposal))
+            {
+                SetupEntryDiffs.Add(new SetupEntryProposal
+                {
+                    Section   = entry.Section,
+                    Key       = entry.Key,
+                    Current   = entry.Value,
+                    Proposed  = proposal.To,
+                    Delta     = proposal.Delta ?? string.Empty,
+                    HasChange = true,
+                });
+            }
+            else
+            {
+                SetupEntryDiffs.Add(new SetupEntryProposal
+                {
+                    Section   = entry.Section,
+                    Key       = entry.Key,
+                    Current   = entry.Value,
+                    Proposed  = entry.Value,
+                    Delta     = string.Empty,
+                    HasChange = false,
+                });
+            }
+        }
+    }
+
+    [RelayCommand]
+    private void IncreaseContentFont()
+    {
+        ContentFontSize = Math.Min(ContentFontSize + 1, 30);
+    }
+
+    [RelayCommand]
+    private void DecreaseContentFont()
+    {
+        ContentFontSize = Math.Max(ContentFontSize - 1, 8);
+    }
+
+
+    public void UpdateInputs(float throttle, float brake)
+    {
+        // Normalize to 0..1
+        var t = Math.Clamp(throttle, 0f, 1f);
+        var b = Math.Clamp(brake, 0f, 1f);
+
+        AppendHistory(_throttleHistory, t);
+        AppendHistory(_brakeHistory, b);
+
+        ThrottlePoints = BuildPoints(_throttleHistory);
+        BrakePoints    = BuildPoints(_brakeHistory, invert: true);
+        ThrottlePoints = ThrottlePoints; // Ensure explicit property assignment
+        BrakePoints    = BrakePoints;    // Ensure explicit property assignment
+    }
+
+    private static void AppendHistory(List<double> history, double value)
+    {
+        history.Add(value);
+        if (history.Count > InputHistorySize)
+            history.RemoveAt(0);
+    }
+
+    private static PointCollection BuildPoints(List<double> history, bool invert = false)
+    {
+        var pc = new PointCollection();
+        if (history.Count == 0) return pc;
+
+        var count = history.Count;
+        var stepX = count > 1 ? InputChartWidth / (count - 1) : InputChartWidth;
+        for (int i = 0; i < count; i++)
+        {
+            var x = i * stepX;
+            var v = invert ? 1.0 - history[i] : history[i];
+            var y = (1.0 - v) * InputChartHeight;
+            pc.Add(new Windows.Foundation.Point(x, y));
+        }
+        return pc;
+    }
+
 
     private void AddLog(string msg, string lvl = "SYS") =>
         Logs.Add(new AgentLogEntry
@@ -376,7 +495,10 @@ public partial class SessionsViewModel : ObservableObject
             OnPropertyChanged(nameof(NoProposalVisibility));
             OnPropertyChanged(nameof(CanApplyProposalPublic));
             ApplyProposalCommand.NotifyCanExecuteChanged();
+            RebuildEntryDiffs();
         };
+
+        SetupEntries.CollectionChanged += (_, _) => RebuildEntryDiffs();
 
         // If a root folder is already configured, populate cars immediately (Local mode).
         if (!string.IsNullOrEmpty(SetupSettings.Instance.RootFolder))
@@ -788,7 +910,12 @@ public partial class SessionsViewModel : ObservableObject
         try
         {
             var items = await provider.GetSetupsAsync(CarId, trackId);
-            foreach (var s in items) SetupFiles.Add(s.FileName);
+            foreach (var s in items)
+            {
+                if (!s.FileName.EndsWith(".ini", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                SetupFiles.Add(s.FileName);
+            }
 
             Iterations.Clear();
             for (int i = 0; i < SetupFiles.Count; i++)
@@ -828,6 +955,8 @@ public partial class SessionsViewModel : ObservableObject
         {
             _cachedEntries  = null;
             CurrentUniverse = null;
+            SetupEntries.Clear();
+            SetupEntryDiffs.Clear();
             return;
         }
 
@@ -841,6 +970,8 @@ public partial class SessionsViewModel : ObservableObject
             _cachedEntries  = null;
             CurrentUniverse = null;
             _baseIniText    = string.Empty;
+            SetupEntries.Clear();
+            SetupEntryDiffs.Clear();
             AppLogger.Instance.Error($"Error al leer setup: {ex.Message}");
             return;
         }
@@ -855,6 +986,11 @@ public partial class SessionsViewModel : ObservableObject
             var allEntries  = SetupIniParser.ParseText(iniText);
             _cachedEntries  = allEntries;
             CurrentUniverse = SetupParamUniverse.Build(CarId, TrackId, SelectedSetupFile!, allEntries);
+
+            SetupEntries.Clear();
+            foreach (var entry in allEntries)
+                SetupEntries.Add(entry);
+            RebuildEntryDiffs();
 
             // Log totals
             AppLogger.Instance.Data(
@@ -880,6 +1016,8 @@ public partial class SessionsViewModel : ObservableObject
         {
             _cachedEntries  = null;
             CurrentUniverse = null;
+            SetupEntries.Clear();
+            SetupEntryDiffs.Clear();
             AppLogger.Instance.Error($"Error al leer parámetros del setup: {ex.Message}");
         }
 
@@ -1001,6 +1139,8 @@ public partial class SessionsViewModel : ObservableObject
         AppLogger.Instance.Ai(
             $"Propuestas generadas desde '{SelectedSetupFile}' — " +
             $"{tunable.Count} parámetros disponibles, {LastProposals.Count} seleccionados.");
+
+        RebuildEntryDiffs();
 
         if (tunable.Count == 0)
             AppLogger.Instance.Warn(
@@ -1291,6 +1431,7 @@ public partial class SessionsViewModel : ObservableObject
             AppLogger.Instance.Warn("RUN → 0 cambios válidos para este setup.");
         }
 
+        RebuildEntryDiffs();
         ApplyProposalCommand.NotifyCanExecuteChanged();
     }
 
@@ -1306,6 +1447,7 @@ private bool CanStop() => IsRunning;
         OnPropertyChanged(nameof(HasProposal));
         OnPropertyChanged(nameof(ProposalVisibility));
         OnPropertyChanged(nameof(NoProposalVisibility));
+        RebuildEntryDiffs();
     }
 
     [RelayCommand(CanExecute = nameof(CanApply))]
@@ -1446,6 +1588,7 @@ private bool CanStop() => IsRunning;
         {
             IsApplying = false;
             ApplyProposalCommand.NotifyCanExecuteChanged();
+            RebuildEntryDiffs();
         }
     }
 
@@ -1678,6 +1821,7 @@ private bool CanStop() => IsRunning;
             LastProposals.Add(p);
 
         SelectedIteration.Iter++;
+        RebuildEntryDiffs();
     }
 
     /// <summary>
@@ -1721,5 +1865,6 @@ private bool CanStop() => IsRunning;
             AppLogger.Instance.Ai($"Ignored {ignored} proposal(s) not present in selected setup.");
 
         SelectedIteration.Iter++;
+        RebuildEntryDiffs();
     }
 }
