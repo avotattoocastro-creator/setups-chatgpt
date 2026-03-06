@@ -95,6 +95,18 @@
                 <views:TelemetryPage />
             </TabViewItem>
 
+            <TabViewItem x:Name="TabGarageBaseline" Header="Garage / Baseline" IsClosable="False">
+                <views:GarageBaselineTab />
+            </TabViewItem>
+
+            <TabViewItem x:Name="TabCompare" Header="Compare Setups" IsClosable="False">
+                <views:CompareSetupsTab />
+            </TabViewItem>
+
+            <TabViewItem x:Name="TabTrackMap" Header="Track Map + Telemetry" IsClosable="False">
+                <views:TrackMapTelemetryTab />
+            </TabViewItem>
+
             <TabViewItem x:Name="TabTerminal" Header="🖥 Terminal" IsClosable="False">
                 <views:TerminalPage />
             </TabViewItem>

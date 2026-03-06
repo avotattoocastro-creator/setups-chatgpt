@@ -32,5 +32,8 @@
     <Content Include="Assets\AVOPERFORMANCE.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Page Update="Views\CompareSetupsTab.xaml" Generator="MSBuild:Compile" />
+    <Page Update="Views\GarageBaselineTab.xaml" Generator="MSBuild:Compile" />
+    <Page Update="Views\TrackMapTelemetryTab.xaml" Generator="MSBuild:Compile" />
   </ItemGroup>
 </Project>
