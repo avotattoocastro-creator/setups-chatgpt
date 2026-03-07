@@ -1,0 +1,219 @@
+﻿<Page
+    x:Class="AvoPerformanceSetupAI.Views.GarageBaselineTab"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:AvoPerformanceSetupAI.ViewModels"
+    xmlns:models="using:AvoPerformanceSetupAI.Models"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="#0B0B0B">
+
+    <Page.DataContext>
+        <vm:GarageBaselineViewModel />
+    </Page.DataContext>
+
+    <Grid Background="#0B0B0B" Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="56" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="32" />
+        </Grid.RowDefinitions>
+
+        <!-- Top bar -->
+        <Grid Grid.Row="0" Background="#151515" Padding="16,12" CornerRadius="10" BorderBrush="#2A2A2A" BorderThickness="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Text="GARAGE / BASELINE" Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="16" />
+                <TextBlock Text="Gestiona plantillas y baselines" Foreground="#9A9A9A" FontSize="12" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button Content="Nuevo" Command="{Binding NewBaselineCommand}" Padding="10,6" />
+                <Button Content="Duplicar" Command="{Binding DuplicateCommand}" Padding="10,6" />
+                <Button Content="Eliminar" Command="{Binding DeleteCommand}" Padding="10,6" />
+                <Button Content="Exportar" Command="{Binding ExportCommand}" Padding="10,6" />
+                <Button Content="Importar" Command="{Binding ImportCommand}" Padding="10,6" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Main content -->
+        <Grid Grid.Row="1" ColumnSpacing="12" Background="#0B0B0B">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="3*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: Baseline library -->
+            <Border Grid.Column="0" Background="#151515" BorderBrush="#2A2A2A" BorderThickness="1" CornerRadius="10" Padding="12" MinHeight="760">
+                <StackPanel Spacing="8">
+                    <TextBox PlaceholderText="Buscar por coche, circuito, tag..." Text="{Binding SearchText, Mode=TwoWay}" Background="#0B0B0B" Foreground="#FFFFFF" BorderBrush="#2A2A2A"/>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox Grid.Column="0" PlaceholderText="Coche" SelectedItem="{Binding CarFilter, Mode=TwoWay}" Background="#0B0B0B" Foreground="#FFFFFF" />
+                        <ComboBox Grid.Column="1" PlaceholderText="Circuito" SelectedItem="{Binding TrackFilter, Mode=TwoWay}" Background="#0B0B0B" Foreground="#FFFFFF" />
+                        <ComboBox Grid.Column="2" PlaceholderText="Sesión" SelectedItem="{Binding SessionFilter, Mode=TwoWay}" Background="#0B0B0B" Foreground="#FFFFFF">
+                            <ComboBoxItem Content="QUALY" />
+                            <ComboBoxItem Content="RACE" />
+                            <ComboBoxItem Content="ENDU" />
+                        </ComboBox>
+                    </Grid>
+
+                    <ListView ItemsSource="{Binding Baselines}" SelectedItem="{Binding SelectedBaseline, Mode=TwoWay}" BorderThickness="0" Background="Transparent" Height="640">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:BaselineEntry" xmlns:models="using:AvoPerformanceSetupAI.Models">
+                                <Grid Padding="8" Background="#0F0F0F" BorderBrush="#2A2A2A" BorderThickness="0,0,0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding Name}" Foreground="#FFFFFF" FontWeight="SemiBold" />
+                                        <TextBlock Foreground="#9A9A9A" TextTrimming="CharacterEllipsis">
+                                            <Run Text="Notas: " /><Run Text="{Binding Notes}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <TextBlock Foreground="#9A9A9A"><Run Text="Coche: " /><Run Text="{Binding Car}" /></TextBlock>
+                                        <TextBlock Foreground="#9A9A9A"><Run Text="Track: " /><Run Text="{Binding Track}" /></TextBlock>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="2">
+                                        <TextBlock Foreground="#9A9A9A"><Run Text="Fecha: " /><Run Text="{Binding LastModified}" /></TextBlock>
+                                        <TextBlock Foreground="#9A9A9A"><Run Text="ID: " /><Run Text="{Binding Id}" /></TextBlock>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <Border Background="#2A2A2A" Padding="6,2" CornerRadius="6">
+                                            <TextBlock Text="{Binding SessionType}" Foreground="#FFFFFF" FontSize="12" />
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+
+            <!-- Right: Baseline details -->
+            <Border Grid.Column="1" Background="#151515" BorderBrush="#2A2A2A" BorderThickness="1" CornerRadius="10" Padding="12" MinHeight="760">
+                <StackPanel Spacing="10">
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding SelectedBaseline.Name}" Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="18" />
+                            <TextBlock Foreground="#9A9A9A"><Run Text="Última modificación: " /><Run Text="{Binding SelectedBaseline.LastModified}" /></TextBlock>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button Content="Usar como baseline" Command="{Binding SetAsCurrentBaselineCommand}" Padding="12,6" />
+                            <Button Content="Aplicar a setup actual" Command="{Binding ApplyToCurrentSetupCommand}" Padding="12,6" />
+                            <Button Content="Abrir en engineering" Padding="12,6" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid RowSpacing="8" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Key Params -->
+                        <Border Grid.Row="0" Grid.Column="0" Background="#0B0B0B" BorderBrush="#2A2A2A" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="160">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="KEY PARAMS" Foreground="#FFFFFF" FontWeight="SemiBold" />
+                                <ItemsControl ItemsSource="{Binding SelectedBaseline.KeyParams}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnSpacing="6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Key}" Foreground="#9A9A9A" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Value}" Foreground="#FFFFFF" FontFamily="Consolas" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Tyre targets -->
+                        <Border Grid.Row="0" Grid.Column="1" Background="#0B0B0B" BorderBrush="#2A2A2A" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="160">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="TYRE TARGETS" Foreground="#FFFFFF" FontWeight="SemiBold" />
+                                <ItemsControl ItemsSource="{Binding SelectedBaseline.TyreTargets}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnSpacing="6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Key}" Foreground="#9A9A9A" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Value}" Foreground="#FFFFFF" FontFamily="Consolas" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Aero map -->
+                        <Border Grid.Row="1" Grid.Column="0" Background="#0B0B0B" BorderBrush="#2A2A2A" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="160">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="AERO MAP" Foreground="#FFFFFF" FontWeight="SemiBold" />
+                                <StackPanel Spacing="6">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <TextBlock Text="Front Wing" Foreground="#9A9A9A" Width="120" />
+                                        <ProgressBar Width="200" Height="8" Minimum="0" Maximum="20" Value="{Binding SelectedBaseline.AeroFront}" Foreground="#E10600" />
+                                        <TextBlock Text="{Binding SelectedBaseline.AeroFront}" Foreground="#FFFFFF" FontFamily="Consolas" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <TextBlock Text="Rear Wing" Foreground="#9A9A9A" Width="120" />
+                                        <ProgressBar Width="200" Height="8" Minimum="0" Maximum="20" Value="{Binding SelectedBaseline.AeroRear}" Foreground="#E10600" />
+                                        <TextBlock Text="{Binding SelectedBaseline.AeroRear}" Foreground="#FFFFFF" FontFamily="Consolas" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <TextBlock Text="Balance" Foreground="#9A9A9A" Width="120" />
+                                        <ProgressBar Width="200" Height="8" Minimum="0" Maximum="100" Value="{Binding SelectedBaseline.AeroBalance}" Foreground="#00D1FF" />
+                                        <TextBlock Text="{Binding SelectedBaseline.AeroBalance}" Foreground="#FFFFFF" FontFamily="Consolas" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Notes -->
+                        <Border Grid.Row="1" Grid.Column="1" Background="#0B0B0B" BorderBrush="#2A2A2A" BorderThickness="1" CornerRadius="8" Padding="10" MinHeight="160">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="NOTAS" Foreground="#FFFFFF" FontWeight="SemiBold" />
+                                <TextBox Text="{Binding SelectedBaseline.Notes, Mode=TwoWay}" AcceptsReturn="True" Height="120" Background="#151515" Foreground="#FFFFFF" BorderBrush="#2A2A2A" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Bottom status bar -->
+        <Border Grid.Row="2" Background="#151515" BorderBrush="#2A2A2A" BorderThickness="1" Padding="12,6" CornerRadius="10">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock Text="Ruta baselines:" Foreground="#9A9A9A" />
+                <TextBlock Text="Documents\\AvoPerformanceSetupAI\\Baselines" Foreground="#FFFFFF" FontFamily="Consolas" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Page>

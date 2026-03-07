@@ -10,6 +10,7 @@ using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
 using AvoPerformanceSetupAI.Models;
 using AvoPerformanceSetupAI.Services;
 using AvoPerformanceSetupAI.Services.Agent;
@@ -66,6 +67,7 @@ public partial class SessionsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanApplyProposalPublic))]
     [NotifyPropertyChangedFor(nameof(LiveApplyBlockedReason))]
     [NotifyPropertyChangedFor(nameof(ApplyButtonTooltip))]
+    [NotifyPropertyChangedFor(nameof(ApplyButtonLabel))]
     [NotifyCanExecuteChangedFor(nameof(ApplyProposalCommand))]
     private bool _isAgentReachable;
 
@@ -127,23 +129,22 @@ public partial class SessionsViewModel : ObservableObject
     /// </summary>
     public string RunButtonLabel => IsHotlapMode ? "▶ RUN (Hotlap)" : "▶ RUN (Live)";
 
-    public string ApplyButtonLabel => IsHotlapMode ? "💾 Save Proposal" : "⚡ Apply Live";
+    public string ApplyButtonLabel
+        => (IsRemoteMode || IsAgentReachable) ? "💾 Save Proposal (REMOTE)" : "💾 Apply Proposal";
+
+    /// <summary>
+    /// Returns <see langword="false"/> when a remote Agent is active, signalling that
+    /// automatic local-disk writes of versioned setup files are prohibited.
+    /// A connected Agent is the authoritative save target; no local fallback is allowed.
+    /// </summary>
+    private bool ShouldWriteLocalIters()
+        => !(IsAgentReachable && !string.IsNullOrWhiteSpace(SetupSettings.Instance.AgentBaseUrl));
 
     /// <summary>
     /// Tooltip shown under the Apply/Save button.
-    /// Shows the live-apply blocked reason in Live mode, or a generic description.
     /// </summary>
     public string ApplyButtonTooltip
-    {
-        get
-        {
-            if (IsHotlapMode) return "Saves a versioned setup file (offline).";
-            var reason = LiveApplyBlockedReason;
-            return reason is not null
-                ? $"Live Apply unavailable: {reason}"
-                : "Applies changes live to the running simulator and saves a versioned file.";
-        }
-    }
+        => "Builds and saves a versioned INI file with the AI proposals applied.";
 
     /// <summary>
     /// Short connection status badge text for the Telemetry page header.
@@ -210,12 +211,130 @@ public partial class SessionsViewModel : ObservableObject
     // ── Collections ───────────────────────────────────────────────────────────
     public ObservableCollection<SetupIteration> Iterations { get; } = new();
     public ObservableCollection<Proposal> LastProposals { get; } = new();
+    public ObservableCollection<IniEntry> SetupEntries { get; } = new();
+    public ObservableCollection<SetupEntryProposal> SetupEntryDiffs { get; } = new();
+    public ObservableCollection<SessionLogEntry> SessionLogs => SessionLogService.Instance.Entries;
+
+    // ── Live inputs (throttle/brake) for quick telemetry sparkline ───────────
+    private const int InputHistorySize = 180; // ~9 s at 20 Hz
+    private const double InputChartWidth = 480.0;
+    private const double InputChartHeight = 80.0;
+
+    private readonly List<double> _throttleHistory = new(InputHistorySize + 8);
+    private readonly List<double> _brakeHistory = new(InputHistorySize + 8);
+
+    public PointCollection ThrottlePoints { get; private set; } = new();
+    public PointCollection BrakePoints { get; private set; } = new();
+
+    // ── UI preferences ──────────────────────────────────────────────────────
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ContentFontSizeLabel))]
+    private double _contentFontSize = 12d;
+
+    public string ContentFontSizeLabel => $"{ContentFontSize:F0} pt";
 
     /// <summary>
     /// Diagnostic log entries produced by Apply Proposal and similar commands.
     /// Forwarded to the Agent Logs tab by <see cref="TelemetryViewModel"/>.
     /// </summary>
     public ObservableCollection<AgentLogEntry> Logs { get; } = new();
+
+    private void RebuildEntryDiffs()
+    {
+        SetupEntryDiffs.Clear();
+
+        if (SetupEntries.Count == 0)
+            return;
+
+        var lookup = new Dictionary<string, Proposal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in LastProposals)
+        {
+            var key = $"{p.Section}|{p.Parameter}";
+            lookup[key] = p; // last one wins, avoids duplicate-key exceptions
+        }
+
+        foreach (var entry in SetupEntries)
+        {
+            var key = $"{entry.Section}|{entry.Key}";
+            if (lookup.TryGetValue(key, out var proposal))
+            {
+                SetupEntryDiffs.Add(new SetupEntryProposal
+                {
+                    Section   = entry.Section,
+                    Key       = entry.Key,
+                    Current   = entry.Value,
+                    Proposed  = proposal.To,
+                    Delta     = proposal.Delta ?? string.Empty,
+                    HasChange = true,
+                });
+            }
+            else
+            {
+                SetupEntryDiffs.Add(new SetupEntryProposal
+                {
+                    Section   = entry.Section,
+                    Key       = entry.Key,
+                    Current   = entry.Value,
+                    Proposed  = entry.Value,
+                    Delta     = string.Empty,
+                    HasChange = false,
+                });
+            }
+        }
+    }
+
+    [RelayCommand]
+    private void IncreaseContentFont()
+    {
+        ContentFontSize = Math.Min(ContentFontSize + 1, 30);
+    }
+
+    [RelayCommand]
+    private void DecreaseContentFont()
+    {
+        ContentFontSize = Math.Max(ContentFontSize - 1, 8);
+    }
+
+
+    public void UpdateInputs(float throttle, float brake)
+    {
+        // Normalize to 0..1
+        var t = Math.Clamp(throttle, 0f, 1f);
+        var b = Math.Clamp(brake, 0f, 1f);
+
+        AppendHistory(_throttleHistory, t);
+        AppendHistory(_brakeHistory, b);
+
+        ThrottlePoints = BuildPoints(_throttleHistory);
+        BrakePoints    = BuildPoints(_brakeHistory, invert: true);
+        ThrottlePoints = ThrottlePoints; // Ensure explicit property assignment
+        BrakePoints    = BrakePoints;    // Ensure explicit property assignment
+    }
+
+    private static void AppendHistory(List<double> history, double value)
+    {
+        history.Add(value);
+        if (history.Count > InputHistorySize)
+            history.RemoveAt(0);
+    }
+
+    private static PointCollection BuildPoints(List<double> history, bool invert = false)
+    {
+        var pc = new PointCollection();
+        if (history.Count == 0) return pc;
+
+        var count = history.Count;
+        var stepX = count > 1 ? InputChartWidth / (count - 1) : InputChartWidth;
+        for (int i = 0; i < count; i++)
+        {
+            var x = i * stepX;
+            var v = invert ? 1.0 - history[i] : history[i];
+            var y = (1.0 - v) * InputChartHeight;
+            pc.Add(new Windows.Foundation.Point(x, y));
+        }
+        return pc;
+    }
+
 
     private void AddLog(string msg, string lvl = "SYS") =>
         Logs.Add(new AgentLogEntry
@@ -245,9 +364,9 @@ public partial class SessionsViewModel : ObservableObject
 
     /// <summary>Human-readable summary of available parameters for the UI.</summary>
     public string UniverseInfo =>
-        _currentUniverse is null
+        CurrentUniverse is null
             ? "Selecciona y carga un setup primero."
-            : $"Keys disponibles: {_currentUniverse.NumericCount} numéricos / {_currentUniverse.KeyCount} total";
+            : $"Keys disponibles: {CurrentUniverse.NumericCount} numéricos / {CurrentUniverse.KeyCount} total";
 
     /// <summary>
     /// Current setup allowlist in <c>"[SECTION]KEY"</c> format.
@@ -272,11 +391,11 @@ public partial class SessionsViewModel : ObservableObject
     {
         get
         {
-            if (_currentUniverse is null) return string.Empty;
+            if (CurrentUniverse is null) return string.Empty;
             var cat = _selectedCategory;
             if (string.IsNullOrEmpty(cat) || cat == "All") return string.Empty;
             if (!Enum.TryParse<SetupCategory>(cat, out var selectedCat)) return string.Empty;
-            if (!_currentUniverse.ByCategory.TryGetValue(selectedCat, out var keys))
+            if (!CurrentUniverse.ByCategory.TryGetValue(selectedCat, out var keys))
                 return $"Disponible: 0 numéricos en {cat}";
             var numericCount = keys.Count(k => k.IsNumeric);
             return $"Disponible: {numericCount} numéricos en {cat}";
@@ -376,11 +495,17 @@ public partial class SessionsViewModel : ObservableObject
             OnPropertyChanged(nameof(NoProposalVisibility));
             OnPropertyChanged(nameof(CanApplyProposalPublic));
             ApplyProposalCommand.NotifyCanExecuteChanged();
+            RebuildEntryDiffs();
         };
 
-        // If a root folder is already configured, populate cars immediately
+        SetupEntries.CollectionChanged += (_, _) => RebuildEntryDiffs();
+
+        // If a root folder is already configured, populate cars immediately (Local mode).
         if (!string.IsNullOrEmpty(SetupSettings.Instance.RootFolder))
             _ = LoadCarsAsync(SetupSettings.Instance.RootFolder);
+        // In Remote mode, always load cars from the Agent even if no root folder is set.
+        else if (SetupSettings.Instance.Mode == AppMode.Remote)
+            _ = LoadCarsAsync(string.Empty);
 
         // Start 1-second Agent state polling when in Remote mode.
         if (SetupSettings.Instance.Mode == AppMode.Remote)
@@ -473,6 +598,19 @@ public partial class SessionsViewModel : ObservableObject
         return new LocalSetupSaver();
     }
 
+    /// <summary>
+    /// Returns the correct <see cref="IProposalSaver"/> implementation based on
+    /// live Agent connectivity — independently of the app Mode dropdown setting.
+    /// </summary>
+    /// <param name="isRemote">
+    /// <see langword="true"/> when the Agent is currently reachable and its base URL is
+    /// configured.  Computed once per save call so it stays stable during the operation.
+    /// </param>
+    private IProposalSaver CreateProposalSaver(bool isRemote)
+        => isRemote
+            ? (IProposalSaver)new RemoteAgentSaver(GetOrCreateAgentClient())
+            : new LocalIniSaver();
+
     // ── Settings change handler ───────────────────────────────────────────────
 
     private void OnSettingsChanged(object? sender, PropertyChangedEventArgs e)
@@ -484,6 +622,7 @@ public partial class SessionsViewModel : ObservableObject
                 break;
             case nameof(SetupSettings.Mode):
                 OnPropertyChanged(nameof(IsRemoteMode));
+                OnPropertyChanged(nameof(ApplyButtonLabel));
                 _ = LoadCarsAsync(SetupSettings.Instance.RootFolder);
                 // Start or stop agent polling when app mode changes.
                 if (SetupSettings.Instance.Mode == AppMode.Remote)
@@ -522,6 +661,8 @@ public partial class SessionsViewModel : ObservableObject
         IsAcRunning             = false;
         IsSharedMemoryConnected = false;
         ActiveCarId             = string.Empty;
+
+        Services.Agent.AgentStatusService.Instance.Update(false, false, false);
     }
 
     private async Task PollAgentStateAsync()
@@ -546,6 +687,11 @@ public partial class SessionsViewModel : ObservableObject
                     IsSharedMemoryConnected = state.SharedMemoryConnected;
                     ActiveCarId             = state.ActiveCarId ?? string.Empty;
                 }
+
+                Services.Agent.AgentStatusService.Instance.Update(
+                    IsAgentReachable,
+                    IsAcRunning,
+                    IsSharedMemoryConnected);
 
                 // Auto workflow: when AC becomes available, start auto proposal loop.
                 // When AC goes away, stop it.
@@ -764,7 +910,12 @@ public partial class SessionsViewModel : ObservableObject
         try
         {
             var items = await provider.GetSetupsAsync(CarId, trackId);
-            foreach (var s in items) SetupFiles.Add(s.FileName);
+            foreach (var s in items)
+            {
+                if (!s.FileName.EndsWith(".ini", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                SetupFiles.Add(s.FileName);
+            }
 
             Iterations.Clear();
             for (int i = 0; i < SetupFiles.Count; i++)
@@ -804,6 +955,8 @@ public partial class SessionsViewModel : ObservableObject
         {
             _cachedEntries  = null;
             CurrentUniverse = null;
+            SetupEntries.Clear();
+            SetupEntryDiffs.Clear();
             return;
         }
 
@@ -817,6 +970,8 @@ public partial class SessionsViewModel : ObservableObject
             _cachedEntries  = null;
             CurrentUniverse = null;
             _baseIniText    = string.Empty;
+            SetupEntries.Clear();
+            SetupEntryDiffs.Clear();
             AppLogger.Instance.Error($"Error al leer setup: {ex.Message}");
             return;
         }
@@ -831,6 +986,11 @@ public partial class SessionsViewModel : ObservableObject
             var allEntries  = SetupIniParser.ParseText(iniText);
             _cachedEntries  = allEntries;
             CurrentUniverse = SetupParamUniverse.Build(CarId, TrackId, SelectedSetupFile!, allEntries);
+
+            SetupEntries.Clear();
+            foreach (var entry in allEntries)
+                SetupEntries.Add(entry);
+            RebuildEntryDiffs();
 
             // Log totals
             AppLogger.Instance.Data(
@@ -856,6 +1016,8 @@ public partial class SessionsViewModel : ObservableObject
         {
             _cachedEntries  = null;
             CurrentUniverse = null;
+            SetupEntries.Clear();
+            SetupEntryDiffs.Clear();
             AppLogger.Instance.Error($"Error al leer parámetros del setup: {ex.Message}");
         }
 
@@ -977,6 +1139,8 @@ public partial class SessionsViewModel : ObservableObject
         AppLogger.Instance.Ai(
             $"Propuestas generadas desde '{SelectedSetupFile}' — " +
             $"{tunable.Count} parámetros disponibles, {LastProposals.Count} seleccionados.");
+
+        RebuildEntryDiffs();
 
         if (tunable.Count == 0)
             AppLogger.Instance.Warn(
@@ -1195,7 +1359,7 @@ public partial class SessionsViewModel : ObservableObject
         ApplyProposalCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanStart() => !IsRunning && _currentUniverse is not null;
+    private bool CanStart() => !IsRunning && CurrentUniverse is not null;
 
     [RelayCommand(CanExecute = nameof(CanStop))]
     private void Stop()
@@ -1235,10 +1399,10 @@ public partial class SessionsViewModel : ObservableObject
         }
 
         // Ensure universe/cache is loaded for the currently selected file.
-        if (_cachedEntries is null || _currentUniverse is null)
+        if (_cachedEntries is null || CurrentUniverse is null)
             await LoadProposalsFromFileAsync();
 
-        if (_cachedEntries is null || _currentUniverse is null)
+        if (_cachedEntries is null || CurrentUniverse is null)
         {
             AppLogger.Instance.Warn("No se pudo cargar el setup — RUN cancelado.");
             return;
@@ -1267,10 +1431,11 @@ public partial class SessionsViewModel : ObservableObject
             AppLogger.Instance.Warn("RUN → 0 cambios válidos para este setup.");
         }
 
+        RebuildEntryDiffs();
         ApplyProposalCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanRunAi() => !IsApplying && IsAiEnabled && _currentUniverse is not null;
+    private bool CanRunAi() => !IsApplying && IsAiEnabled && CurrentUniverse is not null;
 private bool CanStop() => IsRunning;
 
     /// <summary>Clears the current proposal list (available from the IA tab).</summary>
@@ -1282,16 +1447,27 @@ private bool CanStop() => IsRunning;
         OnPropertyChanged(nameof(HasProposal));
         OnPropertyChanged(nameof(ProposalVisibility));
         OnPropertyChanged(nameof(NoProposalVisibility));
+        RebuildEntryDiffs();
     }
 
     [RelayCommand(CanExecute = nameof(CanApply))]
     private async Task ApplyAsync()
     {
-        var saver             = CreateSaver();
-        var iniText           = string.Empty;
+        bool isRemote = IsAgentReachable && !string.IsNullOrWhiteSpace(SetupSettings.Instance.AgentBaseUrl);
+        var modeLabel = isRemote ? "REMOTE" : "LOCAL";
+
+        // Pre-save diagnostic log
+        AppLogger.Instance.Info(
+            $"APPLY: AgentConnected={IsAgentReachable}  " +
+            $"AgentBaseUrl={SetupSettings.Instance.AgentBaseUrl}  " +
+            $"Mode={SetupSettings.Instance.Mode}  " +
+            $"SaveMode={modeLabel}  " +
+            $"BaseFile={SelectedSetupFile}");
+
         var versionedFileName = NextVersionedFileName(SelectedSetupFile!);
 
-        // Read the current setup text (needed for remote save; for local we still copy the file)
+        // Read the current setup text.
+        string iniText;
         try
         {
             iniText = await CreateProvider().ReadSetupTextAsync(CarId, TrackId, SelectedSetupFile!);
@@ -1303,25 +1479,31 @@ private bool CanStop() => IsRunning;
             return;
         }
 
-        try
-        {
-            var savedPath = await saver.SaveAsync(CarId, TrackId, versionedFileName, iniText);
+        var saver  = CreateProposalSaver(isRemote);
+        var req    = new ProposalSaveRequest(CarId, TrackId, versionedFileName, iniText, isRemote);
+        var result = await saver.SaveAsync(req);
 
-            StatusText = "● APPLIED";
-            AppLogger.Instance.Info($"Setup guardado como: {versionedFileName}");
-            AppLogger.Instance.Data(IsRemoteMode
-                ? $"Setup guardado en PC simulador: {savedPath}"
-                : $"Destino: {savedPath}");
+        AppLogger.Instance.Info(
+            $"SAVE RESULT: mode={modeLabel}  ok={result.Ok}  " +
+            $"file={result.File ?? versionedFileName}  reason={result.Reason ?? "—"}");
 
-            // Refresh file list so the new versioned file appears, then select it.
-            await LoadSetupFilesAsync(TrackId);
-            SelectedSetupFile = versionedFileName;
-        }
-        catch (Exception ex)
+        if (!result.Ok)
         {
             StatusText = "● APPLY ERROR";
-            AppLogger.Instance.Error($"Error al guardar el setup: {ex.Message}");
+            AddLog($"APPLY FAILED [{modeLabel}]: {result.Reason}", "ERR");
+            AppLogger.Instance.Error($"APPLY FAILED [{modeLabel}]: {result.Reason}");
+            return;
         }
+
+        StatusText = "● APPLIED";
+        AppLogger.Instance.Info($"Setup guardado como: {versionedFileName}");
+        AppLogger.Instance.Data(isRemote
+            ? $"Setup guardado en PC simulador: {result.File}"
+            : $"Destino: {result.File}");
+
+        // Refresh file list so the new versioned file appears, then select it.
+        await LoadSetupFilesAsync(TrackId);
+        SelectedSetupFile = versionedFileName;
     }
 
     private bool CanApply() => !string.IsNullOrEmpty(SelectedSetupFile);
@@ -1329,38 +1511,41 @@ private bool CanStop() => IsRunning;
     /// <summary>
     /// Returns a new versioned file name based on <paramref name="baseName"/>.
     /// <para>
-    /// Pattern: <c>{stem}__AI__v{NNN}{ext}</c>, where NNN is the next three-digit
-    /// integer after the highest existing version found in <see cref="SetupFiles"/>.
+    /// Pattern: <c>{stem}_AI_{yyyyMMdd_HHmmss}_v{NNN}{ext}</c>, where NNN is the next
+    /// three-digit integer after the highest existing version found in <see cref="SetupFiles"/>
+    /// for files sharing the same base stem.
     /// </para>
     /// <example>
-    /// If <c>SetupFiles</c> contains "Supra MKIV Race mid__AI__v001.ini" and
-    /// "Supra MKIV Race mid__AI__v002.ini", the next name returned is
-    /// "Supra MKIV Race mid__AI__v003.ini".
+    /// If <c>SetupFiles</c> contains "Supra MKIV Race mid_AI_20260301_120000_v001.ini" and
+    /// "Supra MKIV Race mid_AI_20260301_120010_v002.ini", the next name returned is
+    /// "Supra MKIV Race mid_AI_20260301_120030_v003.ini".
     /// </example>
     /// </summary>
     private string NextVersionedFileName(string baseName)
     {
-        var ext    = Path.GetExtension(baseName);
-        var stem   = Path.GetFileNameWithoutExtension(baseName);
-        var prefix = $"{stem}__AI__v";
+        var ext      = Path.GetExtension(baseName);
+        var stem     = Path.GetFileNameWithoutExtension(baseName);
+        var aiPrefix = $"{stem}_AI_";
+        var ts       = DateTime.Now.ToString("yyyyMMdd_HHmmss");
 
+        // Find the highest existing v### among all _AI_ versioned files for this base stem.
         int maxVersion = 0;
         foreach (var f in SetupFiles)
         {
             var fStem = Path.GetFileNameWithoutExtension(f);
-            if (fStem.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            {
-                // Only accept pure-digit suffixes (e.g. "001", "002") to avoid false matches.
-                var numStr = fStem[prefix.Length..];
-                if (numStr.Length > 0 &&
-                    numStr.All(char.IsDigit) &&
-                    int.TryParse(numStr, out int n) &&
-                    n > maxVersion)
-                    maxVersion = n;
-            }
+            if (!fStem.StartsWith(aiPrefix, StringComparison.OrdinalIgnoreCase)) continue;
+            // fStem pattern: {stem}_AI_{ts}_v{NNN}
+            var vIdx = fStem.LastIndexOf("_v", StringComparison.OrdinalIgnoreCase);
+            if (vIdx < 0) continue;
+            var numStr = fStem[(vIdx + 2)..];
+            if (numStr.Length > 0 &&
+                numStr.All(char.IsDigit) &&
+                int.TryParse(numStr, out int n) &&
+                n > maxVersion)
+                maxVersion = n;
         }
 
-        return $"{prefix}{(maxVersion + 1):D3}{ext}";
+        return $"{stem}_AI_{ts}_v{(maxVersion + 1):D3}{ext}";
     }
 
 
@@ -1403,11 +1588,23 @@ private bool CanStop() => IsRunning;
         {
             IsApplying = false;
             ApplyProposalCommand.NotifyCanExecuteChanged();
+            RebuildEntryDiffs();
         }
     }
 
     private async Task DoApplyProposalAsync()
     {
+        bool isRemote = IsAgentReachable && !string.IsNullOrWhiteSpace(SetupSettings.Instance.AgentBaseUrl);
+        var modeLabel = isRemote ? "REMOTE" : "LOCAL";
+
+        // Pre-save diagnostic log
+        AppLogger.Instance.Info(
+            $"APPLY PROPOSAL: AgentConnected={IsAgentReachable}  " +
+            $"AgentBaseUrl={SetupSettings.Instance.AgentBaseUrl}  " +
+            $"Mode={SetupSettings.Instance.Mode}  " +
+            $"SaveMode={modeLabel}  " +
+            $"BaseFile={SelectedSetupFile}");
+
         // Re-read the current base INI so the diff is always accurate, even if
         // _baseIniText was set from a previous load.
         string baseIniText;
@@ -1426,7 +1623,7 @@ private bool CanStop() => IsRunning;
         }
 
         // Safety filter: only apply proposals whose (Section, Parameter) exists in the universe.
-        var universe = _currentUniverse;
+        var universe = CurrentUniverse;
         var proposalsToApply = universe is null
             ? LastProposals.ToList()
             : LastProposals.Where(p =>
@@ -1483,134 +1680,70 @@ private bool CanStop() => IsRunning;
         var modifiedText  = string.Join("\n", lines);
         var versionedName = NextVersionedFileName(SelectedSetupFile!);
 
+        // ── Single central save via IProposalSaver ────────────────────────────
+        var saver      = CreateProposalSaver(isRemote);
+        var req        = new ProposalSaveRequest(CarId, TrackId, versionedName, modifiedText, isRemote);
+        ProposalSaveResult saveResult;
         try
         {
-            string savedPath;
-            bool   appliedOk     = true;
-            string? appliedReason = null;
-
-            if (IsRemoteMode)
-            {
-                // ── Remote: INI-only save via Agent (no live apply) ──
-                var saver = CreateSaver(); // RemoteSetupSaver
-                savedPath = await saver.SaveAsync(CarId, TrackId, versionedName, modifiedText);
-                appliedOk     = true;
-                appliedReason = null;
-            }
-            else
-            {
-                // ── Local: write the versioned file ─────────────────────────────
-                var destFolder = Path.Combine(SetupSettings.Instance.RootFolder, CarId, TrackId);
-                Directory.CreateDirectory(destFolder);
-                var filePath = Path.Combine(destFolder, versionedName);
-                await File.WriteAllTextAsync(filePath, modifiedText);
-                savedPath    = filePath;
-                appliedOk    = true;
-                appliedReason = null;
-                AppLogger.Instance.Ai("Propuesta de IA aplicada al archivo de setup.");
-            }
-
-            // ── Status evaluation (3-state) ──────────────────────────────────
-            // Hotlap mode: save-only — savedOk==true is always green regardless of appliedOk.
-            // Live mode:   savedOk==true && appliedOk==false → yellow warning.
-            // Both modes:  savedOk==false or HTTP error      → red (caught in catch block).
-            if (!appliedOk && !IsHotlapMode)
-            {
-                var reason    = string.IsNullOrEmpty(appliedReason)
-                    ? "Simulador no detectado"
-                    : appliedReason;
-                StatusText = "⚠ SAVED – NOT APPLIED LIVE";
-                AppLogger.Instance.Warn($"Setup guardado pero no aplicado en vivo: {reason}");
-                AddLog($"SAVED – NOT APPLIED LIVE: {reason}", "WRN");
-            }
-            else
-            {
-                StatusText = "● PROPOSAL APPLIED";
-            }
-
-            AppliedFileLabel = $"{SelectedSetupFile} → {versionedName}";
-            AppLogger.Instance.Info($"Setup guardado como: {versionedName}  →  {savedPath}");
-            AddLog($"Applied → {versionedName}", "AI");
-
-            // Capture base label before SelectedSetupFile changes.
-            var baseLabel = Path.GetFileNameWithoutExtension(SelectedSetupFile ?? "base");
-
-            // Refresh file list, select the new versioned file.
-            await LoadSetupFilesAsync(TrackId);
-            SelectedSetupFile = versionedName;
-
-            // Push base-vs-proposed diff to SetupDiffViewModel for the Setup Diff tab.
-            SetupDiffViewModel.Shared.Load(
-                baseText:      baseIniText,
-                proposedText:  modifiedText,
-                baseLabel:     baseLabel,
-                proposedLabel: Path.GetFileNameWithoutExtension(versionedName));
-
-            // Clear proposals after a successful apply — user must press RUN again to get new ones.
-            LastProposals.Clear();
-            _hasProposalFromRun = false;
+            saveResult = await saver.SaveAsync(req);
         }
         catch (Exception ex)
         {
-            var inner   = ex.InnerException is not null ? $" ({ex.InnerException.Message})" : string.Empty;
-            var failMsg = $"APPLY ERROR [{ex.GetType().Name}] {ex.Message}{inner}";
+            var failMsg = $"APPLY PROPOSAL FAILED [{modeLabel}]: {ex.Message}";
             System.Diagnostics.Debug.WriteLine($"[SessionsVM] {failMsg}");
             AddLog(failMsg, "ERR");
             StatusText = "● PROPOSAL ERROR";
-            AppLogger.Instance.Error($"Error al aplicar propuesta: {ex.Message}");
+            AppLogger.Instance.Error(failMsg);
+            return;
         }
-    }
 
-    /// <summary>
-    /// Calls POST /api/reference/setup/apply. If the agent returns 404 (endpoint not yet
-    /// implemented), falls back silently to the legacy /save endpoint.
-    /// Returns a named tuple with (savedPath, versionedName, appliedOk, appliedReason).
-    /// <para>
-    /// <c>appliedOk</c> is <see langword="false"/> when the Agent saved the file but could not
-    /// apply it live (e.g. simulator not running) — this is NOT an error condition.
-    /// </para>
-    /// Throws <see cref="AgentException"/> only when <c>savedOk == false</c> or HTTP fails.
-    /// </summary>
-    private async Task<(string savedPath, string versionedName, bool appliedOk, string? appliedReason)>
-        TryApplyRemoteAsync(
-            ApplySetupRequestDto applyReq, string localVersionedName, string modifiedText)
-    {
-        try
+        AppLogger.Instance.Info(
+            $"SAVE RESULT: mode={modeLabel}  ok={saveResult.Ok}  " +
+            $"file={saveResult.File ?? versionedName}  reason={saveResult.Reason ?? "—"}");
+
+        if (!saveResult.Ok)
         {
-            var result = await GetOrCreateAgentClient().ApplySetupAsync(applyReq);
-
-            // savedOk==false (or old-agent success==false) → true error
-            if (!result.SavedOk)
-                throw new AgentException(
-                    string.IsNullOrEmpty(result.Reason)
-                        ? "El Agent no pudo guardar la propuesta."
-                        : result.Reason!);
-
-            // Prefer the name the Agent chose (it knows existing versioned files).
-            var finalName = !string.IsNullOrEmpty(result.SavedFile)
-                ? result.SavedFile
-                : localVersionedName;
-
-            System.Diagnostics.Debug.WriteLine($"[SessionsVM] APPLY REMOTE: OK → {finalName}");
-            AddLog($"APPLY REMOTE: OK → {finalName}");
-            AppLogger.Instance.Ai($"Propuesta de IA guardada por el Agent: {result.Path}");
-
-            // Return appliedOk/reason so caller can show an appropriate warning.
-            return (result.Path, finalName, result.AppliedOk, result.Reason);
+            var failMsg = $"APPLY PROPOSAL FAILED [{modeLabel}]: {saveResult.Reason}";
+            System.Diagnostics.Debug.WriteLine($"[SessionsVM] {failMsg}");
+            AddLog(failMsg, "ERR");
+            StatusText = "● PROPOSAL ERROR";
+            AppLogger.Instance.Error(failMsg);
+            return;
         }
-        catch (AgentException aex) when (
-            aex.HttpStatus == System.Net.HttpStatusCode.NotFound)
-        {
-            // Agent does not yet implement /apply — fall back to /save.
-            AppLogger.Instance.Warn(
-                "Endpoint /api/reference/setup/apply no disponible. Usando /save como fallback.");
-            AddLog("APPLY fallback → /api/reference/setups/save", "WRN");
 
-            var savedPath = await CreateSaver().SaveAsync(
-                applyReq.Car, applyReq.Track, localVersionedName, modifiedText);
-            // Fallback save has no live-apply concept, so appliedOk=true by convention.
-            return (savedPath, localVersionedName, appliedOk: true, appliedReason: null);
-        }
+        // ── Successful save ───────────────────────────────────────────────────
+        var locationInfo = isRemote
+            ? $"  [{CarId}/{TrackId}/{versionedName}]"
+            : $"  {saveResult.File}";
+        // Prefer the filename/path returned by the saver (may differ from requested)
+        var savedName = string.IsNullOrWhiteSpace(saveResult.File)
+            ? versionedName
+            : System.IO.Path.GetFileName(saveResult.File);
+
+        StatusText = $"✔ Saved OK: {savedName}";
+
+        AppliedFileLabel = $"{SelectedSetupFile} → {savedName}";
+        AppLogger.Instance.Info($"Setup guardado como: {savedName}");
+        AddLog($"Saved OK [{modeLabel}] → {savedName}", "AI");
+
+        // Capture base label before SelectedSetupFile changes.
+        var baseLabel = Path.GetFileNameWithoutExtension(SelectedSetupFile ?? "base");
+
+        // Refresh file list, select the new versioned file.
+        await LoadSetupFilesAsync(TrackId);
+        SelectedSetupFile = savedName;
+
+        // Push base-vs-proposed diff to SetupDiffViewModel for the Setup Diff tab.
+        SetupDiffViewModel.Shared.Load(
+            baseText:      baseIniText,
+            proposedText:  modifiedText,
+            baseLabel:     baseLabel,
+            proposedLabel: Path.GetFileNameWithoutExtension(versionedName));
+
+        // Clear proposals after a successful apply — user must press RUN again to get new ones.
+        LastProposals.Clear();
+        _hasProposalFromRun = false;
     }
 
     private bool CanApplyProposal()
@@ -1666,7 +1799,7 @@ private bool CanStop() => IsRunning;
         if (SelectedIteration is null) return;
 
         // Filter: skip proposals whose (Section, Parameter) is not in the loaded universe.
-        if (_currentUniverse is not null && !_currentUniverse.Contains(p.Section, p.Parameter))
+        if (CurrentUniverse is not null && !CurrentUniverse.Contains(p.Section, p.Parameter))
         {
             // Silent ignore: proposals MUST be limited to the loaded setup universe.
             return;
@@ -1688,6 +1821,7 @@ private bool CanStop() => IsRunning;
             LastProposals.Add(p);
 
         SelectedIteration.Iter++;
+        RebuildEntryDiffs();
     }
 
     /// <summary>
@@ -1705,7 +1839,7 @@ private bool CanStop() => IsRunning;
         foreach (var p in proposals)
         {
             // Filter: skip proposals whose (Section, Parameter) is not in the loaded universe.
-            if (_currentUniverse is not null && !_currentUniverse.Contains(p.Section, p.Parameter))
+            if (CurrentUniverse is not null && !CurrentUniverse.Contains(p.Section, p.Parameter))
             {
                 ignored++;
                 continue;
@@ -1731,5 +1865,6 @@ private bool CanStop() => IsRunning;
             AppLogger.Instance.Ai($"Ignored {ignored} proposal(s) not present in selected setup.");
 
         SelectedIteration.Iter++;
+        RebuildEntryDiffs();
     }
 }

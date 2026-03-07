@@ -254,6 +254,9 @@ public sealed class AcTelemetryReader : IDisposable
 
             NormalizedLapPos = graphics.NormalizedCarPos,
             LapTimeMs        = graphics.ICurrentTimeMs,
+            LastLapMs        = graphics.ILastTimeMs,
+            BestLapMs        = graphics.IBestTimeMs,
+            CompletedLaps    = graphics.CompletedLaps,
             AcStatus         = graphics.Status,
 
             MaxRpm  = MaxRpm,

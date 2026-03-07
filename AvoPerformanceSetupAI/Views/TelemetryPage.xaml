@@ -396,12 +396,14 @@
                                 </StackPanel>
                             </Expander.Header>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.Channels}"
-                                          ItemTemplate="{StaticResource RealChannelCard}">
+                                          ItemTemplate="{StaticResource RealChannelCard}"
+                                          HorizontalAlignment="Stretch"
+                                          HorizontalContentAlignment="Stretch"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Auto">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <!-- 4 per row is intentional per spec: "Limit metric tiles to max 4 per row" -->
-                                        <!-- 4 per row is intentional per spec: "Limit metric tiles to max 4 per row" -->
-                                        <ItemsWrapGrid MaximumRowsOrColumns="4" Orientation="Horizontal"/>
+                                        <!-- Single horizontal line; scrolls if overflow -->
+                                        <ItemsStackPanel Orientation="Horizontal"/>
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                             </ItemsControl>
@@ -427,10 +429,13 @@
                                 </StackPanel>
                             </Expander.Header>
                             <ItemsControl ItemsSource="{x:Bind ViewModel.Channels}"
-                                          ItemTemplate="{StaticResource IdealChannelCard}">
+                                          ItemTemplate="{StaticResource IdealChannelCard}"
+                                          HorizontalAlignment="Stretch"
+                                          HorizontalContentAlignment="Stretch"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Auto">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <ItemsWrapGrid MaximumRowsOrColumns="4" Orientation="Horizontal"/>
+                                        <ItemsStackPanel Orientation="Horizontal"/>
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                             </ItemsControl>

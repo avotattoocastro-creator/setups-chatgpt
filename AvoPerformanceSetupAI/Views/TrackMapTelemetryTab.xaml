@@ -1,0 +1,168 @@
+﻿<Page
+    x:Class="AvoPerformanceSetupAI.Views.TrackMapTelemetryTab"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:AvoPerformanceSetupAI.ViewModels"
+    xmlns:converters="using:AvoPerformanceSetupAI.Converters"
+    Background="#0B0B0B">
+
+    <Page.DataContext>
+        <vm:TrackMapTelemetryViewModel />
+    </Page.DataContext>
+
+    <Page.Resources>
+        <converters:LapDistToCoordinateConverter x:Key="LapDistToCoord" />
+    </Page.Resources>
+
+    <Grid Margin="16" Background="#0B0B0B">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="56"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="32"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Background="#151515" Padding="16,12" CornerRadius="10" BorderBrush="#2A2A2A" BorderThickness="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Text="TRACK MAP + TELEMETRY" Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="16"/>
+                <TextBlock Text="Overlay en vivo" Foreground="#9A9A9A" FontSize="12"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Content="Cargar ref lap" Command="{Binding LoadReferenceLapCommand}" Style="{StaticResource SecondaryActionButton}"/>
+                <Button Content="Usar lap actual" Command="{Binding SetCurrentLapAsReferenceCommand}" Style="{StaticResource SecondaryActionButton}"/>
+                <Button Content="Clear overlay" Command="{Binding ClearOverlayCommand}" Style="{StaticResource SecondaryActionButton}"/>
+                <Button Content="Export snapshot" Command="{Binding ExportMapSnapshotCommand}" Style="{StaticResource SecondaryActionButton}"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnSpacing="12" RowSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="7*"/>
+                <ColumnDefinition Width="3*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="200"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Column="0" Grid.Row="0" Background="#151515" BorderBrush="#2A2A2A" BorderThickness="1" CornerRadius="10" Padding="12">
+                <Canvas x:Name="TrackCanvas" Background="#0B0B0B" Height="620" Width="1080">
+                    <Polyline Points="0,300 200,100 500,120 800,200 1000,400 800,550 400,520 180,420 0,300" Stroke="#2A2A2A" StrokeThickness="3" StrokeLineJoin="Round" StrokeDashArray="2 2"/>
+                    <Ellipse Width="12" Height="12" Fill="#E10600" Canvas.Left="{Binding CurrentTelemetry.LapDistPct, Converter={StaticResource LapDistToCoord}, ConverterParameter=1080}" Canvas.Top="{Binding CurrentTelemetry.LapDistPct, Converter={StaticResource LapDistToCoord}, ConverterParameter=620}"/>
+                </Canvas>
+            </Border>
+
+            <Border Grid.Column="1" Grid.Row="0" Background="#151515" BorderBrush="#2A2A2A" BorderThickness="1" CornerRadius="10" Padding="12">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Telemetry" Foreground="#FFFFFF" FontWeight="SemiBold"/>
+                    <Grid ColumnSpacing="8" RowSpacing="6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="2">
+                            <TextBlock Text="Speed" Foreground="#9A9A9A"/>
+                            <TextBlock Text="{Binding CurrentTelemetry.SpeedKph}" Foreground="#00D1FF" FontFamily="Consolas" FontSize="22"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
+                            <TextBlock Text="Gear" Foreground="#9A9A9A"/>
+                            <TextBlock Text="{Binding CurrentTelemetry.Gear}" Foreground="#FFFFFF" FontFamily="Consolas" FontSize="22"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="0" Spacing="2">
+                            <TextBlock Text="RPM" Foreground="#9A9A9A"/>
+                            <ProgressBar Minimum="0" Maximum="9000" Value="{Binding CurrentTelemetry.Rpm}" Height="10" Foreground="#E10600"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                            <TextBlock Text="Throttle / Brake" Foreground="#9A9A9A"/>
+                            <ProgressBar Minimum="0" Maximum="1" Value="{Binding CurrentTelemetry.Throttle}" Height="8" Foreground="#00D1FF"/>
+                            <ProgressBar Minimum="0" Maximum="1" Value="{Binding CurrentTelemetry.Brake}" Height="8" Foreground="#E10600"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="0" Spacing="2">
+                            <TextBlock Text="Steering" Foreground="#9A9A9A"/>
+                            <TextBlock Text="{Binding CurrentTelemetry.SteeringDeg}" Foreground="#FFFFFF" FontFamily="Consolas"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2">
+                            <TextBlock Text="Δ vs Ref" Foreground="#9A9A9A"/>
+                            <TextBlock Text="{Binding CurrentTelemetry.DeltaToRef}" Foreground="#E10600" FontFamily="Consolas"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnSpacing="8" RowSpacing="6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <Border Grid.ColumnSpan="2" Background="#0B0B0B" CornerRadius="8" Padding="8" BorderBrush="#2A2A2A" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="Tyre temps" Foreground="#FFFFFF" FontWeight="SemiBold"/>
+                                <Grid Margin="0,4,0,0" ColumnSpacing="6" RowSpacing="6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition/>
+                                        <ColumnDefinition/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="FL" Foreground="#9A9A9A"/>
+                                    <TextBlock Grid.Column="1" Text="FR" Foreground="#9A9A9A"/>
+                                    <TextBlock Grid.Row="1" Text="RL" Foreground="#9A9A9A"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="RR" Foreground="#9A9A9A"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Margin="26,0,0,0" Text="{Binding CurrentTelemetry.TyreTemps[0]}" Foreground="#FFFFFF" FontFamily="Consolas"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Margin="26,0,0,0" Text="{Binding CurrentTelemetry.TyreTemps[1]}" Foreground="#FFFFFF" FontFamily="Consolas"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Margin="26,0,0,0" Text="{Binding CurrentTelemetry.TyreTemps[2]}" Foreground="#FFFFFF" FontFamily="Consolas"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Margin="26,0,0,0" Text="{Binding CurrentTelemetry.TyreTemps[3]}" Foreground="#FFFFFF" FontFamily="Consolas"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="1" Grid.ColumnSpan="2" Background="#151515" BorderBrush="#2A2A2A" BorderThickness="1" CornerRadius="10" Padding="12">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="SECTOR COMPARISON" Foreground="#FFFFFF" FontWeight="SemiBold"/>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="S1" Foreground="#9A9A9A"/>
+                            <ProgressBar Minimum="-2" Maximum="2" Value="{Binding S1Delta}" Height="8" Foreground="#E10600"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="S2" Foreground="#9A9A9A"/>
+                            <ProgressBar Minimum="-2" Maximum="2" Value="{Binding S2Delta}" Height="8" Foreground="#E10600"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="4">
+                            <TextBlock Text="S3" Foreground="#9A9A9A"/>
+                            <ProgressBar Minimum="-2" Maximum="2" Value="{Binding S3Delta}" Height="8" Foreground="#E10600"/>
+                        </StackPanel>
+                    </Grid>
+                    <ProgressBar Minimum="0" Maximum="1" Value="{Binding CurrentTelemetry.LapDistPct}" Height="6" Foreground="#00D1FF"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2" Background="#151515" BorderBrush="#2A2A2A" BorderThickness="1" Padding="12,6" CornerRadius="10">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock Text="Overlay buffer activo" Foreground="#9A9A9A"/>
+                <TextBlock Text="Segmentos: 100" Foreground="#FFFFFF" FontFamily="Consolas"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Page>

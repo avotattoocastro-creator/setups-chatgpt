@@ -84,6 +84,12 @@ public readonly record struct TelemetrySample
     public float NormalizedLapPos { get; init; }
     /// <summary>Elapsed lap time in milliseconds.</summary>
     public int   LapTimeMs        { get; init; }
+    /// <summary>Last completed lap time in milliseconds.</summary>
+    public int   LastLapMs        { get; init; }
+    /// <summary>Best lap time in milliseconds.</summary>
+    public int   BestLapMs        { get; init; }
+    /// <summary>Total completed laps in the current session.</summary>
+    public int   CompletedLaps    { get; init; }
     /// <summary>Assetto Corsa session status (0 = Off, 1 = Replay, 2 = Live, 3 = Pause).</summary>
     public int   AcStatus         { get; init; }
 
